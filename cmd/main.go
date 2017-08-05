@@ -7,25 +7,25 @@ import (
 
 func main() {
 
-	history :=
-		[]autoscalingV2.Job{
-			{
-				Id:          "historicalJob1",
-				Duration:    1000,
-				DataSetSize: 1.4,
-				Tags:        []string{"metapipe"},
-			},
-		}
-
-	queue :=
-		[]autoscalingV2.Job{
-			{
-				Id:          "currentJob1",
-				Duration:    10,
-				DataSetSize: 1.4,
-				Tags:        []string{"metapipe"},
-			},
-		}
+	//history :=
+	//	[]autoscalingV2.Job{
+	//		{
+	//			Id:          "historicalJob1",
+	//			Duration:    1000,
+	//			DataSetSize: 1.4,
+	//			Tags:        []string{"metapipe"},
+	//		},
+	//	}
+	//
+	//queue :=
+	//	[]autoscalingV2.Job{
+	//		{
+	//			Id:          "currentJob1",
+	//			Duration:    10,
+	//			DataSetSize: 1.4,
+	//			Tags:        []string{"metapipe"},
+	//		},
+	//	}
 
 	clusterConfig :=
 		autoscalingV2.ClusterConfig{
@@ -55,7 +55,7 @@ func main() {
 			},
 		}
 
-	nodes, err := autoscalingV2.RunSimulation(history, queue, clusterConfig, 0)
+	nodes, err := autoscalingV2.RunSimulation("autoscalingV2/test.json", "", clusterConfig, 0)
 
 	if err != nil {
 		log.Fatalf("%s\n", err)
