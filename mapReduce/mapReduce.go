@@ -8,13 +8,25 @@ type MapperFunc func(interface{}, chan interface{})
 //Function that is executed during the reduce step
 type ReducerFunc func(chan interface{}, chan interface{})
 
-type MapReducer struct {
-	mapFunc      MapperFunc
-	reducerFunc  ReducerFunc
-	collector    MapCollector
+//
+type IMapReducer interface {
+	New(int) *MapReducer
+	Filter(interface{}) bool
+	Map(MapperFunc)
+	Reduce(ReducerFunc)
+	Run() interface{}
+
+	NewMapReducer(MapperFunc, ReducerFunc, int) *MapReducer
+	MapReduce(chan interface{}) interface{}
 }
 
-//Constructs a new map reducer uses the given functions and sets a maximum number of possible worker threads
+type MapReducer struct {
+	mapFunc     MapperFunc
+	reducerFunc ReducerFunc
+	collector   MapCollector
+}
+
+//Constructs a new map reducer uses the given functions
 func NewMapReducer(mapperFunc MapperFunc, reducerFunc ReducerFunc, maxWorkers int) *MapReducer {
 	return &MapReducer{
 		mapFunc:     mapperFunc,

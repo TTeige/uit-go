@@ -37,6 +37,7 @@ func parseJsonObject(filename string) chan Job {
 	return output
 }
 
+//BEGIN COUNT TAGS
 func mapTags(filename interface{}, output chan interface{}) {
 	results := map[string]int{}
 
@@ -69,8 +70,10 @@ func countTags(input chan interface{}, output chan interface{}) {
 	}
 	output <- results
 }
+//END COUNT TAGS
 
-func mapJobs(filename interface{}, output chan interface{}) {
+//BEGIN COUNT JOBS
+func mapJobsById(filename interface{}, output chan interface{}) {
 	results := make(map[string]Job)
 
 	for job := range parseJsonObject(filename.(string)) {
@@ -78,7 +81,6 @@ func mapJobs(filename interface{}, output chan interface{}) {
 		results[key] = job
 	}
 	output <- results
-
 }
 
 func sumJobs(input chan interface{}, output chan interface{}) {
@@ -91,3 +93,34 @@ func sumJobs(input chan interface{}, output chan interface{}) {
 
 	output <- results
 }
+//END COUNT JOBS
+//BEGIN REDUCE BY DURATION GROUP BY DATA SIZE
+func mapByDataSize(filename interface{}, output chan interface{}) {
+	results := make(map[float64][]Job)
+
+	for job := range parseJsonObject(filename.(string)) {
+		key := job.DataSetSize
+		results[key] = append(results[key], job)
+	}
+	output <- results
+}
+
+func sumDuration(input chan interface{}, output chan interface{}) {
+	results := map[float64]int64{}
+	for matches := range input {
+		for key, value := range matches.(map[float64][]Job) {
+			var duration int64
+			for i := range value {
+				duration = duration + value[i].Duration
+			}
+			_, exists := results[key]
+			if !exists {
+				results[key] = duration
+			} else {
+				results[key] = results[key] + duration
+			}
+		}
+	}
+	output <- results
+}
+//END REDUCE BY DURATION GROUP BY DATA SIZE
