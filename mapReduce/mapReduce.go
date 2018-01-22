@@ -8,57 +8,73 @@ type MapperFunc func(interface{}, chan interface{})
 //Function that is executed during the reduce step
 type ReducerFunc func(chan interface{}, chan interface{})
 
-//
+type FilterFunc func(interface{}) bool
+
 type IMapReducer interface {
 	New(int) *MapReducer
-	Filter(interface{}) bool
+	Filter(FilterFunc)
 	Map(MapperFunc)
 	Reduce(ReducerFunc)
 	Run() interface{}
-
-	NewMapReducer(MapperFunc, ReducerFunc, int) *MapReducer
-	MapReduce(chan interface{}) interface{}
 }
 
 type MapReducer struct {
 	mapFunc     MapperFunc
 	reducerFunc ReducerFunc
+	filterFunc  FilterFunc
 	collector   MapCollector
+	step        int
+	maxWorkers  int
 }
 
-//Constructs a new map reducer uses the given functions
-func NewMapReducer(mapperFunc MapperFunc, reducerFunc ReducerFunc, maxWorkers int) *MapReducer {
+func New(maxWorkers int) *MapReducer {
 	return &MapReducer{
-		mapFunc:     mapperFunc,
-		reducerFunc: reducerFunc,
-		collector:   make(MapCollector, maxWorkers),
+		step:       0,
+		maxWorkers: maxWorkers,
 	}
 }
 
-//Input is a channel of input values that are parsed. These values are used in the mapping step of the mapreduce algorithm.
-func (m *MapReducer) MapReduce(input chan interface{}) interface{} {
+func (m *MapReducer) Filter(filterFunc FilterFunc) {
+	m.filterFunc = filterFunc
+}
+
+func (m *MapReducer) Map(mapperFunc MapperFunc) {
+	m.mapFunc = mapperFunc
+}
+
+func (m *MapReducer) Reduce(reducerFunc ReducerFunc) {
+	m.reducerFunc = reducerFunc
+}
+
+func (m *MapReducer) Run(input chan interface{}) interface{} {
+	collector := make(MapCollector, m.maxWorkers)
 	reducerInput := make(chan interface{})
 	reducerOutput := make(chan interface{})
 
 	go m.reducerFunc(reducerInput, reducerOutput)
-	go m.reducerDispatcher(reducerInput)
-	go m.mapperDispatcher(input)
+	go m.reducerDispatcher(reducerInput, collector)
+	go m.mapperDispatcher(input, collector, m.mapFunc)
 
 	return <-reducerOutput
-}
 
-func (m *MapReducer) mapperDispatcher(input chan interface{}) {
+}
+func (m *MapReducer) mapperDispatcher(input chan interface{}, collector MapCollector, mapperFunc MapperFunc) {
+	if mapperFunc == nil {
+		collector <- input
+		close(collector)
+		return
+	}
 	for item := range input {
 		mapperOutput := make(chan interface{})
-		go m.mapFunc(item, mapperOutput)
-		m.collector <- mapperOutput
+		go mapperFunc(item, mapperOutput)
+		collector <- mapperOutput
 	}
-	close(m.collector)
+	close(collector)
 }
 
-func (m *MapReducer) reducerDispatcher(reducerInput chan interface{}) {
-	for output := range m.collector {
-		reducerInput <- <-output
+func (m *MapReducer) reducerDispatcher(reducerInput chan interface{}, collector MapCollector) {
+	for mapperOutput := range collector {
+		reducerInput <- <-mapperOutput
 	}
 	close(reducerInput)
 }

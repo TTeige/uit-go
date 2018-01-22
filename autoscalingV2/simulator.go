@@ -2,8 +2,8 @@ package autoscalingV2
 
 import (
 	"github.com/tteige/uit-go/mapReduce"
-	"log"
 	"runtime"
+	"log"
 )
 
 type NodeConfig struct {
@@ -32,41 +32,20 @@ type Job struct {
 }
 
 func parseHistoricalData(filename string) interface{} {
+	fileChan := createClosedInputChannel(filename)
 	maxWorkers := runtime.GOMAXPROCS(runtime.NumCPU())
-	tagToCount := mapReduce.NewMapReducer(mapTags, countTags, maxWorkers)
+	mapreducer := mapReduce.New(maxWorkers)
+	mapreducer.Map(mapTags)
+	mapreducer.Reduce(countTags)
+	result := mapreducer.Run(fileChan)
 
-	fileChan := make(chan interface{})
-	go func() {
-		fileChan <- filename
-		close(fileChan)
-	}()
-
-	result := tagToCount.MapReduce(fileChan)
+	//log.Printf("Job count: %d\n", result)
 	for k, v := range result.(map[string]int) {
-		log.Printf("%s: %d\n", k, v)
+		log.Printf("Tag: %s. count: %d\n", k, v)
 	}
-
-	fileChan = make(chan interface{})
-	go func() {
-		fileChan <- filename
-		close(fileChan)
-	}()
-
-	jobCount := mapReduce.NewMapReducer(mapJobsById, sumJobs, maxWorkers)
-	result = jobCount.MapReduce(fileChan)
-	log.Printf("Job count: %d\n", result)
-
-	fileChan = make(chan interface{})
-	go func() {
-		fileChan <- filename
-		close(fileChan)
-	}()
-
-	averageDuration := mapReduce.NewMapReducer(mapByDataSize, sumDuration, maxWorkers)
-	result = averageDuration.MapReduce(fileChan)
-	for k, v := range result.(map[float64]int64) {
-		log.Printf("DataSize: %f Duration: %d\n", k, v)
-	}
+	//for k, v := range result.(map[string]Job) {
+	//	log.Printf("JobId: %s = Job %+v\n", k, v)
+	//}
 	return result
 }
 

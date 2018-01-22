@@ -5,6 +5,15 @@ import (
 	"encoding/json"
 	"os"
 )
+//Create a single valued input channel
+func createClosedInputChannel(obj interface{}) chan interface{} {
+	newChan := make(chan interface{})
+	go func() {
+		newChan <- obj
+		close(newChan)
+	}()
+	return newChan
+}
 
 func parseJsonObject(filename string) chan Job {
 	output := make(chan Job)
@@ -40,7 +49,6 @@ func parseJsonObject(filename string) chan Job {
 //BEGIN COUNT TAGS
 func mapTags(filename interface{}, output chan interface{}) {
 	results := map[string]int{}
-
 	for job := range parseJsonObject(filename.(string)) {
 		for i := 0; i < len(job.Tags); i++ {
 			key := job.Tags[i]
@@ -52,7 +60,6 @@ func mapTags(filename interface{}, output chan interface{}) {
 			}
 		}
 	}
-
 	output <- results
 }
 
@@ -123,4 +130,13 @@ func sumDuration(input chan interface{}, output chan interface{}) {
 	}
 	output <- results
 }
+
+func simple(input chan interface{}, output chan interface{}) {
+	var val int
+	for matches := range input {
+		val = matches.(int) + 10
+	}
+	output <- val
+}
 //END REDUCE BY DURATION GROUP BY DATA SIZE
+
