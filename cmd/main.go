@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/tteige/uit-go/autoscalingV2"
-	"log"
+	//"github.com/tteige/uit-go/autoscalingV2"
+	"github.com/tteige/uit-go/autoscalingServer"
+	//"log"
 )
 
 func main() {
@@ -27,41 +28,42 @@ func main() {
 	//		},
 	//	}
 
-	clusterConfig :=
-		autoscalingV2.ClusterConfig{
-			Nodes: []autoscalingV2.NodeConfig{
-				{
-					InstanceType: "m4.xlarge",
-					VCpu:         4,
-					Memory:       16,
-					ClockSpeed:   2.4,
-					Storage: autoscalingV2.Storage{
-						Type:  "EBS-Only",
-						Count: 0,
-						Size:  0,
-					},
-				},
-				{
-					InstanceType: "m4.xlarge",
-					VCpu:         4,
-					Memory:       16,
-					ClockSpeed:   2.4,
-					Storage: autoscalingV2.Storage{
-						Type:  "EBS-Only",
-						Count: 0,
-						Size:  0,
-					},
-				},
-			},
-		}
+	//clusterConfig :=
+	//	autoscalingV2.ClusterConfig{
+	//		Nodes: []autoscalingV2.NodeConfig{
+	//			{
+	//				InstanceType: "m4.xlarge",
+	//				VCpu:         4,
+	//				Memory:       16,
+	//				ClockSpeed:   2.4,
+	//				Storage: autoscalingV2.Storage{
+	//					Type:  "EBS-Only",
+	//					Count: 0,
+	//					Size:  0,
+	//				},
+	//			},
+	//			{
+	//				InstanceType: "m4.xlarge",
+	//				VCpu:         4,
+	//				Memory:       16,
+	//				ClockSpeed:   2.4,
+	//				Storage: autoscalingV2.Storage{
+	//					Type:  "EBS-Only",
+	//					Count: 0,
+	//					Size:  0,
+	//				},
+	//			},
+	//		},
+	//	}
 
-	nodes, err := autoscalingV2.RunSimulation("autoscalingV2/test.json", "", clusterConfig, 0)
+	//nodes, err := autoscalingV2.RunSimulation("autoscalingV2/test.json", "", clusterConfig, 0)
+	//
+	//if err != nil {
+	//	log.Fatalf("%s\n", err)
+	//}
+	//
+	//log.Printf("Possible best number of nodes = %d\n", nodes)
 
-	if err != nil {
-		log.Fatalf("%s\n", err)
-	}
-
-	log.Printf("Possible best number of nodes = %d\n", nodes)
-
+	autoscalingServer.Serve("localhost:8080")
 	return
 }
