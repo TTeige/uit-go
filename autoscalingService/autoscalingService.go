@@ -1,4 +1,4 @@
-package autoscalingServer
+package autoscalingService
 
 import (
 	"github.com/gorilla/mux"
