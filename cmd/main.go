@@ -2,7 +2,7 @@ package main
 
 import (
 	//"github.com/tteige/uit-go/autoscalingV2"
-	"github.com/tteige/uit-go/autoscalingServer"
+	"github.com/tteige/uit-go/autoscalingService"
 	//"log"
 )
 
@@ -64,6 +64,6 @@ func main() {
 	//
 	//log.Printf("Possible best number of nodes = %d\n", nodes)
 
-	autoscalingServer.Serve("localhost:8080")
+	autoscalingService.Serve("localhost:8080")
 	return
 }
