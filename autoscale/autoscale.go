@@ -3,6 +3,7 @@ package autoscale
 import (
 	"time"
 	"net/url"
+	"github.com/tteige/uit-go/models"
 )
 
 type Instance struct {
@@ -22,11 +23,17 @@ type Cluster struct {
 }
 
 type AlgorithmInput struct {
-	JobQueue QueueHandle
+	JobQueue []AlgorithmJob
 }
 
 type AlgorithmOutput struct {
 	Instances []Instance
+}
+
+type AlgorithmJob struct {
+	Job      models.Job
+	Deadline time.Time
+	Priority int
 }
 
 type MetapipeJob struct {
@@ -36,6 +43,7 @@ type MetapipeJob struct {
 	Parameters []string
 	State      string
 	Intervals  []time.Time
+	Priority   int
 }
 
 type Cloud interface {
@@ -46,5 +54,5 @@ type Cloud interface {
 }
 
 type AlgorithmInterface interface {
-	Step(input AlgorithmInput, stepTime time.Time) (error, AlgorithmOutput)
+	Step(input AlgorithmInput, stepTime time.Time) (*AlgorithmOutput, error)
 }
