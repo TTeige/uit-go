@@ -1,42 +1,66 @@
 package simulator
 
-import "database/sql"
+import (
+	"database/sql"
+	"github.com/gorilla/mux"
+	"net/http"
+)
 
 func Run(hostUrl string, db *sql.DB) {
-
+	serveSim(hostUrl, db)
 }
 
-//
-//import (
-//	"github.com/tteige/uit-go/mapReduce"
-//	"runtime"
-//	"log"
-//)
-//
-//type NodeConfig struct {
-//	InstanceType string
-//	VCpu         int
-//	Memory       float64
-//	ClockSpeed   float64
-//	Storage
-//}
-//
-//type Storage struct {
-//	Type  string
-//	Count int
-//	Size  int
-//}
-//
-//type ClusterConfig struct {
-//	Nodes []NodeConfig
-//}
-//
-//type Job struct {
-//	Id          string `json:"id"`
-//	Duration    int64 `json:"duration"`
-//	DataSetSize float64 `json:"dataSetSize"`
-//	Tags        []string `json:"tags"`
-//}
+func serveSim(hostUrl string, db *sql.DB) {
+	r := mux.NewRouter()
+	r.Path("/").Methods("GET").Handler(indexHandle(db))
+	r.Path("/simulate/").Methods("POST").Handler(simulationHandle(db))
+	r.Path("/simulate/{id}/").Methods("GET").Handler(getPreviousScalingHandle(db))
+
+	http.ListenAndServe(hostUrl, r)
+}
+func getPreviousScalingHandle(db *sql.DB) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+	})
+}
+
+func simulationHandle(db *sql.DB) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+	})
+}
+
+func indexHandle(db *sql.DB) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+
+	})
+}
+
+type NodeConfig struct {
+	InstanceType string
+	VCpu         int
+	Memory       float64
+	ClockSpeed   float64
+	Storage
+}
+
+type Storage struct {
+	Type  string
+	Count int
+	Size  int
+}
+
+type ClusterConfig struct {
+	Nodes []NodeConfig
+}
+
+type Job struct {
+	Id          string   `json:"id"`
+	Duration    int64    `json:"duration"`
+	DataSetSize float64  `json:"dataSetSize"`
+	Tags        []string `json:"tags"`
+}
+
 //
 //func parseHistoricalData(filename string) interface{} {
 //	fileChan := createClosedInputChannel(filename)
