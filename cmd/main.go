@@ -14,7 +14,7 @@ func main() {
 	dbHost := flag.String("databaseUrl", "user=tim dbname=autoscaling password=something", "database source")
 	hostname := flag.String("hostname", "localhost:8080", "hostname for either service or simulator")
 
-	db, err := models.NewDatabase(*dbHost)
+	db, err := models.OpenDatabase(*dbHost)
 	if err != nil {
 		log.Fatalf("%s", err)
 		return
@@ -25,7 +25,11 @@ func main() {
 		autoscalingService.Run(*hostname, db)
 	} else {
 		log.Printf("Starting the auto scaling simulator at: %s ", *hostname)
-		simulator.Run(*hostname, db)
+		sim := simulator.Simulator{
+			DB:db,
+			Hostname:*hostname,
+		}
+		sim.Run()
 	}
 	return
 }
