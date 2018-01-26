@@ -4,34 +4,36 @@ import (
 	"database/sql"
 	"github.com/gorilla/mux"
 	"net/http"
+	"github.com/tteige/uit-go/autoscale"
 )
 
-func Run(hostUrl string, db *sql.DB) {
-	serveSim(hostUrl, db)
+type Simulator struct {
+	DB        *sql.DB
+	Hostname  string
+	SimClouds []autoscale.Cloud
 }
 
-func serveSim(hostUrl string, db *sql.DB) {
+func (sim *Simulator) Run() {
+
+	sim.serveSim()
+}
+
+func (sim *Simulator) serveSim() {
 	r := mux.NewRouter()
-	r.Path("/").Methods("GET").Handler(indexHandle(db))
-	r.Path("/simulate/").Methods("POST").Handler(simulationHandle(db))
-	r.Path("/simulate/{id}/").Methods("GET").Handler(getPreviousScalingHandle(db))
-
-	http.ListenAndServe(hostUrl, r)
-}
-func getPreviousScalingHandle(db *sql.DB) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
-	})
+	r.HandleFunc("/", sim.indexHandle).Methods("GET")
+	r.HandleFunc("/simulate/", sim.simulationHandle).Methods("POST")
+	r.HandleFunc("/simulate/{id}/", sim.getPreviousScalingHandle).Methods("GET")
+	http.ListenAndServe(sim.Hostname, r)
 }
 
-func simulationHandle(db *sql.DB) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (sim *Simulator) getPreviousScalingHandle(w http.ResponseWriter, r *http.Request) {
 
-	})
 }
 
-func indexHandle(db *sql.DB) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 
-	})
+}
+
+func (sim *Simulator) indexHandle(w http.ResponseWriter, r *http.Request) {
+
 }
