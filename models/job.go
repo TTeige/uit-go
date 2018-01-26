@@ -7,6 +7,7 @@ type Job struct {
 	Id string
 	Parameters []string
 	Tags []string
+	InputDataSize int
 }
 
 func AllJobs(db *sql.DB) ([]*Job, error) {
