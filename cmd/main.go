@@ -1,69 +1,31 @@
 package main
 
 import (
-	//"github.com/tteige/uit-go/autoscalingV2"
+	"flag"
+	"log"
 	"github.com/tteige/uit-go/autoscalingService"
-	//"log"
+	"github.com/tteige/uit-go/models"
+	"github.com/tteige/uit-go/simulator"
 )
 
 func main() {
 
-	//history :=
-	//	[]autoscalingV2.Job{
-	//		{
-	//			Id:          "historicalJob1",
-	//			Duration:    1000,
-	//			DataSetSize: 1.4,
-	//			Tags:        []string{"metapipe"},
-	//		},
-	//	}
-	//
-	//queue :=
-	//	[]autoscalingV2.Job{
-	//		{
-	//			Id:          "currentJob1",
-	//			Duration:    10,
-	//			DataSetSize: 1.4,
-	//			Tags:        []string{"metapipe"},
-	//		},
-	//	}
+	service := flag.Bool("production", false, "run the auto scaling service")
+	dbHost := flag.String("databaseUrl", "user=tim dbname=autoscaling password=something", "database source")
+	hostname := flag.String("hostname", "localhost:8080", "hostname for either service or simulator")
 
-	//clusterConfig :=
-	//	autoscalingV2.ClusterConfig{
-	//		Nodes: []autoscalingV2.NodeConfig{
-	//			{
-	//				InstanceType: "m4.xlarge",
-	//				VCpu:         4,
-	//				Memory:       16,
-	//				ClockSpeed:   2.4,
-	//				Storage: autoscalingV2.Storage{
-	//					Type:  "EBS-Only",
-	//					Count: 0,
-	//					Size:  0,
-	//				},
-	//			},
-	//			{
-	//				InstanceType: "m4.xlarge",
-	//				VCpu:         4,
-	//				Memory:       16,
-	//				ClockSpeed:   2.4,
-	//				Storage: autoscalingV2.Storage{
-	//					Type:  "EBS-Only",
-	//					Count: 0,
-	//					Size:  0,
-	//				},
-	//			},
-	//		},
-	//	}
+	db, err := models.NewDatabase(*dbHost)
+	if err != nil {
+		log.Fatalf("%s", err)
+		return
+	}
 
-	//nodes, err := autoscalingV2.RunSimulation("autoscalingV2/test.json", "", clusterConfig, 0)
-	//
-	//if err != nil {
-	//	log.Fatalf("%s\n", err)
-	//}
-	//
-	//log.Printf("Possible best number of nodes = %d\n", nodes)
-
-	autoscalingService.Serve("localhost:8080")
+	if *service {
+		log.Printf("Starting the auto scaling service at: %s ", *hostname)
+		autoscalingService.Run(*hostname, db)
+	} else {
+		log.Printf("Starting the auto scaling simulator at: %s ", *hostname)
+		simulator.Run(*hostname, db)
+	}
 	return
 }
