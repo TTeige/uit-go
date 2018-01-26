@@ -11,6 +11,7 @@ type Simulator struct {
 	DB        *sql.DB
 	Hostname  string
 	SimClouds []autoscale.Cloud
+	Algorithm autoscale.AlgorithmInterface
 }
 
 func (sim *Simulator) Run() {
@@ -31,6 +32,10 @@ func (sim *Simulator) getPreviousScalingHandle(w http.ResponseWriter, r *http.Re
 }
 
 func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
+	//An empty body request to this endpoint will initiate the simulation based on the inputted algorithm
+	//qh := autoscale.QueueHandle{
+	//	DB: sim.DB,
+	//}
 
 }
 

@@ -6,6 +6,7 @@ import (
 	"github.com/tteige/uit-go/autoscalingService"
 	"github.com/tteige/uit-go/models"
 	"github.com/tteige/uit-go/simulator"
+	"github.com/tteige/uit-go/algorithm"
 )
 
 func main() {
@@ -29,9 +30,14 @@ func main() {
 		s.Run()
 	} else {
 		log.Printf("Starting the auto scaling simulator at: %s ", *hostname)
+		alg := algorithm.NaiveAlgorithm{
+			ScaleUpThreshold: 10,
+			ScaleDownThreshold: 3,
+		}
 		sim := simulator.Simulator{
 			DB:db,
 			Hostname:*hostname,
+			Algorithm: alg,
 		}
 		sim.Run()
 	}
