@@ -22,7 +22,11 @@ func main() {
 
 	if *service {
 		log.Printf("Starting the auto scaling service at: %s ", *hostname)
-		autoscalingService.Run(*hostname, db)
+		s := autoscalingService.Service{
+			DB:db,
+			Hostname:*hostname,
+		}
+		s.Run()
 	} else {
 		log.Printf("Starting the auto scaling simulator at: %s ", *hostname)
 		sim := simulator.Simulator{
