@@ -8,9 +8,9 @@ import (
 type NaiveAlgorithm struct {
 	ScaleUpThreshold   int
 	ScaleDownThreshold int
-	autoscale.AlgorithmInterface
+	autoscale.Algorithm
 }
 
-func (n *NaiveAlgorithm) Step(input autoscale.AlgorithmInput, stepTime time.Time) (*autoscale.AlgorithmOutput, error) {
+func (n NaiveAlgorithm) Step(input autoscale.AlgorithmInput, stepTime time.Time) (*autoscale.AlgorithmOutput, error) {
 	return nil, nil
 }
