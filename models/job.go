@@ -1,12 +1,15 @@
 package models
 
-import "database/sql"
+import (
+	"database/sql"
+	"github.com/tteige/uit-go/autoscale"
+)
 
 type Job struct {
-	Runtime int
 	Id string
-	Parameters []string
+	Runtime int
 	Tags []string
+	Parameters []string
 	InputDataSize int
 }
 
@@ -33,4 +36,19 @@ func AllJobs(db *sql.DB) ([]*Job, error) {
 	}
 
 	return jobs, nil
+}
+
+func InsertJob(db *sql.DB, job Job) error {
+
+	sqlStmt :=
+	`INSERT INTO jobs (id, runtime, tags, parameters, datasetsize)
+	VALUES ($1, $2, $3, $4, $5)`
+
+
+
+	_, err := db.Exec(sqlStmt, job.Id, job.Runtime, job.Tags, job.Parameters, job.InputDataSize)
+	if err != nil {
+		return err
+	}
+	return nil
 }
