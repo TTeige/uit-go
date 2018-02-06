@@ -14,10 +14,11 @@ type Simulator struct {
 	Hostname  string
 	SimClouds []autoscale.Cloud
 	Algorithm autoscale.Algorithm
+	Log       *log.Logger
 }
 
 func (sim *Simulator) Run() {
-
+	sim.Log.Printf("Starting the auto scaling simulator at: %s ", sim.Hostname)
 	sim.serveSim()
 }
 
@@ -40,13 +41,15 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 
 	jobs := []autoscale.AlgorithmJob{
 		{
-			Id:                   "123abc",
-			Tags:                 []string{"aws", "csc"},
-			Parameters:           []string{"blast"},
-			State:                "RUNNING",
+			BaseJob: autoscale.BaseJob{
+				Id:         "123abc",
+				Tags:       []string{"aws", "cpouta"},
+				Parameters: []string{"removeNonCompleteGenes", "useBlastUniref50"},
+				State:      "RUNNING",
+				Priority:   2000,
+			},
 			StateTransitionTimes: nil,
 			Deadline:             time.Now().Add(time.Hour),
-			Priority:             10,
 		},
 	}
 
@@ -74,12 +77,12 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 
 	out, err := sim.Algorithm.Step(algInput, time.Now().Add(time.Hour*2))
 	if err != nil {
-		log.Print(err)
+		sim.Log.Print(err)
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	log.Printf("%+v", out)
+	sim.Log.Printf("%+v", out)
 
 }
 
