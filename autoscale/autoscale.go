@@ -32,19 +32,36 @@ type AlgorithmOutput struct {
 	Instances []Instance
 }
 
+type BaseJob struct {
+	Id         string
+	Tags       []string
+	Parameters []string
+	State      string
+	Priority   int
+}
+
 type AlgorithmJob struct {
-	Id                   string
-	Tags                 []string
-	Parameters           []string
-	State                string
+	BaseJob
 	StateTransitionTimes []time.Time
 	Deadline             time.Time
-	Priority             int
+}
+
+type attempt struct {
+	State       string
+	Tag         string
+	TimeCreated time.Time
+	TimeStarted time.Time
+	TimeEnded   time.Time
+	Runtime     time.Duration
 }
 
 type MetapipeJob struct {
-	Job   AlgorithmJob
-	Input url.URL
+	BaseJob
+	Input       url.URL
+	StartTime   time.Time
+	EndTime     time.Time
+	TimeCreated time.Time
+	Attempts    []attempt
 }
 
 type Cloud interface {
