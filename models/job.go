@@ -2,15 +2,30 @@ package models
 
 import (
 	"database/sql"
-	"github.com/tteige/uit-go/autoscale"
+	"log"
 )
 
 type Job struct {
-	Id string
-	Runtime int
-	Tags []string
-	Parameters []string
+	Runtime       int64
+	Tag           string
 	InputDataSize int
+	JobId         string
+	QueueDuration int64
+}
+
+func CheckExists(db *sql.DB, jobId string) (bool, error) {
+	existStmt :=
+		`SELECT EXISTS(SELECT 1 FROM jobs WHERE jobid = $1)`
+
+	_, err := db.Query(existStmt, jobId)
+
+	if err != nil && err != sql.ErrNoRows {
+		log.Fatalf("Error when initializing the database: %s", err)
+	}
+	if err == sql.ErrNoRows {
+		return false, err
+	}
+	return true, err
 }
 
 func AllJobs(db *sql.DB) ([]*Job, error) {
@@ -24,7 +39,7 @@ func AllJobs(db *sql.DB) ([]*Job, error) {
 
 	for rows.Next() {
 		job := new(Job)
-		err := rows.Scan(&job.Id, &job.Runtime, &job.Tags, &job.Parameters)
+		err := rows.Scan(&job.JobId, &job.Runtime, &job.Tag)
 		if err != nil {
 			return nil, err
 		}
@@ -41,12 +56,12 @@ func AllJobs(db *sql.DB) ([]*Job, error) {
 func InsertJob(db *sql.DB, job Job) error {
 
 	sqlStmt :=
-	`INSERT INTO jobs (id, runtime, tags, parameters, datasetsize)
-	VALUES ($1, $2, $3, $4, $5)`
+		`INSERT INTO jobs (jobid, runtime, tag, datasetsize, queueduration)
+		VALUES ($1, $2, $3, $4, $5)
+		ON CONFLICT (jobid)
+		DO NOTHING`
 
-
-
-	_, err := db.Exec(sqlStmt, job.Id, job.Runtime, job.Tags, job.Parameters, job.InputDataSize)
+	_, err := db.Exec(sqlStmt, job.JobId, job.Runtime, job.Tag, job.InputDataSize, job.QueueDuration)
 	if err != nil {
 		return err
 	}
