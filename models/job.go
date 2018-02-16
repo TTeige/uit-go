@@ -6,10 +6,10 @@ import (
 )
 
 type Job struct {
+	JobId         string
 	Runtime       int64
 	Tag           string
 	InputDataSize int
-	JobId         string
 	QueueDuration int64
 }
 
@@ -28,7 +28,7 @@ func CheckExists(db *sql.DB, jobId string) (bool, error) {
 	return true, err
 }
 
-func AllJobs(db *sql.DB) ([]*Job, error) {
+func GetAllJobs(db *sql.DB) ([]*Job, error) {
 	rows, err := db.Query("SELECT * FROM jobs")
 	defer rows.Close()
 	if err != nil {
@@ -39,7 +39,7 @@ func AllJobs(db *sql.DB) ([]*Job, error) {
 
 	for rows.Next() {
 		job := new(Job)
-		err := rows.Scan(&job.JobId, &job.Runtime, &job.Tag)
+		err := rows.Scan(&job.Runtime, &job.Tag, &job.JobId, &job.InputDataSize, &job.QueueDuration)
 		if err != nil {
 			return nil, err
 		}
