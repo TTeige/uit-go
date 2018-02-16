@@ -16,14 +16,14 @@ type Service struct {
 
 func (s *Service) indexHandle(w http.ResponseWriter, r *http.Request) {
 	// Create serving for the overview of the algorithms that have been input to the scaling server
-	jobs, err := models.AllJobs(s.DB)
+	jobs, err := models.GetAllJobs(s.DB)
 	if err != nil {
 		log.Println(err)
 		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 	for _, job := range jobs {
-		w.Write([]byte(fmt.Sprintf("%s, %d, %#v, %#v", job.Id, job.Runtime, job.Parameters, job.Tags)))
+		w.Write([]byte(fmt.Sprintf("%s, %d, %#v", job.JobId, job.Runtime, job.Tag)))
 	}
 }
 
