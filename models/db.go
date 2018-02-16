@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
-	"log"
+	"fmt"
 )
 
 type inputFas struct {
@@ -78,7 +78,29 @@ func getTotalDuration(job metaJob) (int64, error) {
 	return totalDuration, nil
 }
 
+func insertJobAndParam(db *sql.DB, job Job, par Parameters) error {
+	err := InsertJob(db, job)
+	if err != nil {
+		return err
+	}
+
+	err = InsertParameter(db, par)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func InitDatabase(db *sql.DB) error {
+
+	jobs, err := GetAllJobs(db)
+	if err != nil {
+		return err
+	}
+
+	if len(jobs) > 0 {
+		return nil
+	}
 
 	resp, err := http.Get("https://jobs.metapipe.uit.no/jobs")
 	if err != nil {
@@ -86,14 +108,15 @@ func InitDatabase(db *sql.DB) error {
 	}
 	defer resp.Body.Close()
 
-
 	var all []metaJob
 	dec := json.NewDecoder(resp.Body)
 	err = dec.Decode(&all)
 	if err != nil {
 		return err
 	}
-
+	/*
+	TODO: Add batch insertion instead of individual inserts, not a problem yet, but if the database grows it will become slow
+	*/
 	for _, job := range all {
 		if job.State == "FINISHED" {
 			totalDuration, err := getTotalDuration(job)
@@ -109,17 +132,11 @@ func InitDatabase(db *sql.DB) error {
 				InputDataSize: 0,
 				QueueDuration: job.TotalQueueDurationMillis,
 			}
-			err = InsertJob(db, dbJob)
-			if err != nil {
-				return err
-			}
-
 			par := job.Parameters
 			par.JobId = job.Id
 
-			err = InsertParameter(db, par)
+			err = insertJobAndParam(db, dbJob, par)
 			if err != nil {
-				log.Print(job)
 				return err
 			}
 		}
@@ -128,8 +145,9 @@ func InitDatabase(db *sql.DB) error {
 	return nil
 }
 
-func OpenDatabase(source string) (*sql.DB, error) {
-	db, err := sql.Open("postgres", source)
+func OpenDatabase(DB_USER string, DB_NAME string, DB_PASSWORD string) (*sql.DB, error) {
+	dbStr := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", DB_USER, DB_PASSWORD, DB_NAME)
+	db, err := sql.Open("postgres", dbStr)
 	if err != nil {
 		return nil, err
 	}
