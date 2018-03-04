@@ -7,6 +7,7 @@ import (
 	"github.com/tteige/uit-go/autoscale"
 	"time"
 	"log"
+	"html/template"
 )
 
 type Simulator struct {
@@ -15,10 +16,15 @@ type Simulator struct {
 	SimClouds []autoscale.Cloud
 	Algorithm autoscale.Algorithm
 	Log       *log.Logger
+	templates *template.Template
+	tmplLoc   string
 }
 
 func (sim *Simulator) Run() {
 	sim.Log.Printf("Starting the auto scaling simulator at: %s ", sim.Hostname)
+	sim.tmplLoc = "simulator/templates/"
+	sim.templates = template.Must(template.ParseFiles(sim.tmplLoc+"footer.html", sim.tmplLoc+"header.html",
+		sim.tmplLoc+"index.html", sim.tmplLoc+"navbar.html"))
 	sim.serveSim()
 }
 
@@ -75,17 +81,31 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 		Clusters: clusters,
 	}
 
-	out, err := sim.Algorithm.Step(algInput, time.Now().Add(time.Hour*2))
-	if err != nil {
-		sim.Log.Print(err)
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	startTime := time.Now()
 
-	sim.Log.Printf("%+v", out)
+	for i := 0; i < 10; i++ {
+		out, err := sim.Algorithm.Step(algInput, startTime.Add(time.Minute * time.Duration(30 * i)))
+		if err != nil {
+			sim.Log.Print(err)
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		sim.Log.Printf("%+v", out)
+	}
 
 }
 
 func (sim *Simulator) indexHandle(w http.ResponseWriter, r *http.Request) {
+	err := sim.renderTemplate(w, "index", []string{})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
 
+func (sim *Simulator) renderTemplate(w http.ResponseWriter, tmpl string, p interface{}) error {
+	err := sim.templates.ExecuteTemplate(w, tmpl, p)
+	if err != nil {
+		return err
+	}
+	return nil
 }

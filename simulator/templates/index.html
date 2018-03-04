@@ -1,0 +1,15 @@
+{{define "index"}}
+
+<!DOCTYPE html>
+<html>
+{{template "header" .}}
+<body>
+    {{template "nav_bar" .}}
+    <div class="content">
+        <h1>Auto scaling overview</h1>
+        <p>Select an auto scaling run to view the decisions and compare it to others</p>
+    </div>
+    {{template "footer" .}}
+</body>
+</html>
+{{end}}
