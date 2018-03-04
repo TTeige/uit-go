@@ -11,7 +11,7 @@ type Instance struct {
 }
 
 type InstanceType struct {
-	Id             string
+	Name           string
 	PriceIncrement int
 }
 
@@ -19,7 +19,7 @@ type Cluster struct {
 	Name            string
 	Limit           int
 	AcceptTags      []string
-	Types           []InstanceType
+	Types           map[string]InstanceType
 	ActiveInstances []Instance
 }
 
