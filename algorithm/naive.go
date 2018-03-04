@@ -8,7 +8,6 @@ import (
 type NaiveAlgorithm struct {
 	ScaleUpThreshold   int
 	ScaleDownThreshold int
-	autoscale.Algorithm
 }
 
 func (n NaiveAlgorithm) Step(input autoscale.AlgorithmInput, stepTime time.Time) (*autoscale.AlgorithmOutput, error) {
