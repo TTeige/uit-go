@@ -65,14 +65,12 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			Limit:           100,
 			AcceptTags:      []string{"aws", "aws-meta"},
 			Types:           nil,
-			ActiveInstances: nil,
 		},
 		{
 			Name:            "cpouta",
 			Limit:           1000,
 			AcceptTags:      []string{"cpouta", "csc"},
 			Types:           nil,
-			ActiveInstances: nil,
 		},
 	}
 

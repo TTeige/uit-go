@@ -6,8 +6,9 @@ import (
 )
 
 type Instance struct {
-	Id   string
-	Type InstanceType
+	Id    string
+	Type  InstanceType
+	State string
 }
 
 type InstanceType struct {
@@ -68,7 +69,7 @@ type Cloud interface {
 	AddInstance(instance *Instance) (string, error)
 	DeleteInstance(id string) error
 	GetInstances() ([]Instance, error)
-	GetInstanceTypes() ([]InstanceType, error)
+	GetInstanceTypes() (map[string]InstanceType, error)
 }
 
 type Algorithm interface {
