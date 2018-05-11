@@ -11,6 +11,12 @@ type Instance struct {
 	State string
 }
 
+type ScalingEvent struct {
+	Instance Instance
+	Type string
+	ClusterTag string
+}
+
 type InstanceType struct {
 	Name           string
 	PriceIncrement int
@@ -30,7 +36,8 @@ type AlgorithmInput struct {
 }
 
 type AlgorithmOutput struct {
-	Instances []Instance
+	Instances []ScalingEvent
+	JobQueue []AlgorithmJob
 }
 
 type BaseJob struct {
@@ -66,6 +73,7 @@ type MetapipeJob struct {
 }
 
 type Cloud interface {
+	ProcessEvent(event ScalingEvent, runId string) error
 	AddInstance(instance *Instance) (string, error)
 	DeleteInstance(id string) error
 	GetInstances() ([]Instance, error)
