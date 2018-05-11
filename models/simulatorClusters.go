@@ -5,41 +5,61 @@ import (
 	"github.com/tteige/uit-go/autoscale"
 )
 
-func GetCluster(db *sql.DB, name string) (*autoscale.Cluster, error) {
+func GetDefaultClusters(db *sql.DB) ([]autoscale.Cluster, error) {
+	cPouta, err := GetCluster(db, "SimcPouta")
+	if err != nil {
+		return nil, err
+	}
+	aws, err := GetCluster(db, "SimAWS")
+	if err != nil {
+		return nil, err
+	}
+	stallo, err := GetCluster(db, "SimStallo")
+	if err != nil {
+		return nil, err
+	}
+
+	return []autoscale.Cluster{cPouta, aws, stallo}, nil
+}
+
+func GetCluster(db *sql.DB, name string) (autoscale.Cluster, error) {
 	type partialCluster struct {
 		Name  string
 		Limit int
 	}
 
 	var pc partialCluster
+	var cluster autoscale.Cluster
 
 	err := db.QueryRow("SELECT * FROM simcluster WHERE name=$1", name).Scan(&pc)
 	if err != nil {
-		return nil, err
+		return cluster, err
 	}
 
 	tags, err := GetAcceptTags(db, name)
 	if err != nil {
-		return nil, err
+		return cluster, err
 	}
 
 	types, err := GetTypes(db, name)
 	if err != nil {
-		return nil, err
+		return cluster, err
 	}
 
 	instances, err := GetInstances(db, name)
 	if err != nil {
-		return nil, err
+		return cluster, err
 	}
 
-	return &autoscale.Cluster{
+	cluster = autoscale.Cluster{
 		Name:            pc.Name,
 		Limit:           pc.Limit,
 		AcceptTags:      tags,
 		Types:           types,
 		ActiveInstances: instances,
-	}, nil
+	}
+
+	return cluster, nil
 }
 
 func GetAcceptTags(db *sql.DB, cluster_name string) ([]string, error) {
