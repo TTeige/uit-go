@@ -15,7 +15,30 @@ type SimCpouta struct {
 	// Needs a database handle to interact with the "external compute system". The database emulates the network
 	// connection
 	Db *sql.DB
-	Simulation models.Simulation
+	runId string
+}
+
+func (c *SimCpouta) ProcessEvent(event autoscale.ScalingEvent, runId string) error {
+	c.runId = runId
+	if event.Type == "CREATED" {
+		_, err := c.AddInstance(&event.Instance)
+		if err != nil {
+			return err
+		}
+	}
+	if event.Type == "DELETED" {
+		err := c.DeleteInstance(event.Instance.Id)
+		if err != nil {
+			return err
+		}
+	}
+	if event.Type == "REUSE" {
+		_, err := c.AddInstance(&event.Instance)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *SimCpouta) AddInstance(instance *autoscale.Instance) (string, error) {
@@ -38,10 +61,10 @@ func (c *SimCpouta) AddInstance(instance *autoscale.Instance) (string, error) {
 			if i.State == "Shutoff" {
 				// The server / VM is in the correct state and has the correct flavor
 				models.WriteSimEvent(c.Db, models.SimEvent{
-					SimId:      c.Simulation.Name,
+					SimId:      c.runId,
 					Created:    time.Now(),//Needs to be changed to support the time abstraction
 					InstanceId: i.Id,
-					Type:       "reboot",
+					Type:       "REUSED",
 				})
 				newInstanceName = i.Id
 				i.State = "Active"
@@ -50,7 +73,16 @@ func (c *SimCpouta) AddInstance(instance *autoscale.Instance) (string, error) {
 		}
 	}
 
-	stall_for_feedback(100, 500)
+	models.WriteSimEvent(c.Db, models.SimEvent{
+		SimId:      c.runId,
+		Created:    time.Now(),
+		InstanceId: instance.Id,
+		Type:       "CREATED",
+	})
+
+	newInstanceName = instance.Id
+	instance.State = "Active"
+
 	return newInstanceName, nil
 }
 
@@ -64,7 +96,7 @@ func (c *SimCpouta) DeleteInstance(id string) error {
 		if e.Id == id {
 			c.ActiveInstances = append(instances[:i], instances[i+1:]...)
 			models.WriteSimEvent(c.Db, models.SimEvent{
-				SimId:      c.Simulation.Name,
+				SimId:      c.runId,
 				Created:    time.Now(),//Needs to be changed to support the time abstraction
 				InstanceId: e.Id,
 				Type:       "delete",
@@ -102,13 +134,13 @@ func (c *SimCpouta) GetInstances() ([]autoscale.Instance, error) {
 		}
 		c.ActiveInstances = i
 	}
-	stall_for_feedback(100, 500)
+
 	return c.ActiveInstances, nil
 }
 
 func (c *SimCpouta) GetInstanceTypes() (map[string]autoscale.InstanceType, error) {
 	// Request to fetch all flavors, not sure if any API support this
-	stall_for_feedback(100, 500)
+
 	return c.Types, nil
 }
 
