@@ -32,6 +32,7 @@ func (c *SimCpouta) ProcessEvent(event autoscale.ScalingEvent, runId string) err
 			return err
 		}
 	}
+	//TODO: Implement propper reusage of instances.
 	if event.Type == "REUSE" {
 		_, err := c.AddInstance(&event.Instance)
 		if err != nil {

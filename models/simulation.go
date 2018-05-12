@@ -3,14 +3,37 @@ package models
 import (
 	"time"
 	"database/sql"
+	"github.com/lib/pq"
 )
 
 type Simulation struct {
+	SimulationStats
+	Events   []SimEvent
+}
+
+type SimulationStats struct {
 	Id       int
 	Name     string
 	Started  time.Time
-	Finished time.Time
-	Events   []SimEvent
+	Finished pq.NullTime
+}
+
+func GetAllSimulationStats(db *sql.DB) ([]SimulationStats, error) {
+	stats := make([]SimulationStats, 0)
+	rows, err := db.Query("SELECT * FROM simulation")
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var sim SimulationStats
+		err = rows.Scan(&sim.Id, &sim.Name, &sim.Started, &sim.Finished)
+		if err != nil {
+			return nil, err
+		}
+		stats = append(stats, sim)
+	}
+
+	return stats, nil
 }
 
 func GetSimEvents(db *sql.DB, sim_id string) ([]SimEvent, error) {
@@ -51,8 +74,8 @@ func GetSimulation(db *sql.DB, sim_name string) (*Simulation, error) {
 }
 
 func CreateSimulation(db *sql.DB, sim_name string, startTime time.Time) (*Simulation, error) {
-	_, err := db.Exec("INSERT INTO simulation (name, started, finished) VALUES (?, ?, ?)",
-		sim_name, startTime, nil)
+	_, err := db.Exec("INSERT INTO simulation (name, started) VALUES ($1, $2)",
+		sim_name, startTime)
 	if err != nil {
 		return nil, err
 	}

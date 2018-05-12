@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"github.com/segmentio/ksuid"
 	"strings"
+	"encoding/json"
 )
 
 type Simulator struct {
@@ -38,7 +39,22 @@ func (sim *Simulator) serveSim() {
 	r.HandleFunc("/simulate/", sim.simulationHandle).Methods("POST")
 	r.HandleFunc("/simulate/instancetype/", sim.simulationHandle).Methods("POST")
 	r.HandleFunc("/simulate/{id}/", sim.getPreviousScalingHandle).Methods("GET")
+	r.HandleFunc("/simulation/all", sim.getAllSimulations).Methods("GET")
 	http.ListenAndServe(sim.Hostname, r)
+}
+
+func (sim *Simulator) getAllSimulations(w http.ResponseWriter, r *http.Request) {
+	sim.Log.Print("GetAllSimulationsRequest: /simulation/all")
+	sims, err := models.GetAllSimulationStats(sim.DB)
+	if err != nil {
+		sim.Log.Print(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	b, err := json.Marshal(sims)
+	w.Write(b)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (sim *Simulator) getPreviousScalingHandle(w http.ResponseWriter, r *http.Request) {
@@ -46,9 +62,11 @@ func (sim *Simulator) getPreviousScalingHandle(w http.ResponseWriter, r *http.Re
 }
 
 func (sim *Simulator) addInstanceType(w http.ResponseWriter, r *http.Request) {
+	sim.Log.Print("AddInstanceTypeRequest: /simulate/instancetype/")
 
 	err := r.ParseForm()
 	if err != nil {
+		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -73,6 +91,7 @@ func (sim *Simulator) addInstanceType(w http.ResponseWriter, r *http.Request) {
 }
 
 func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
+	sim.Log.Print("SimulationRequest: /simulate/")
 	// An empty body request to this endpoint will initiate the simulation based on the inputted algorithm
 	// A body with jobs: {...} uses these jobs, else, standard jobs are used
 	// A body with cloudState: {...} uses this cloud state, else, standard state is used
@@ -113,9 +132,10 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	//TODO: Add cluster loading from form and from database
 
 	clust, err := models.GetDefaultClusters(sim.DB)
-	if err != nil {
+	if err != nil && err != sql.ErrNoRows {
 		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -147,6 +167,9 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if out == nil {
+			continue
+		}
 		sim.Log.Printf("%+v", out)
 
 		for _, e := range out.Instances {
@@ -163,10 +186,10 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 		}
 		algInput.JobQueue = out.JobQueue
 	}
-
 }
 
 func (sim *Simulator) indexHandle(w http.ResponseWriter, r *http.Request) {
+	sim.Log.Print("IndexRequest: /")
 	err := sim.renderTemplate(w, "index", []string{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

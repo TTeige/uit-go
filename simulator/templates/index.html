@@ -2,6 +2,19 @@
 
 <!DOCTYPE html>
 <html>
+
+<script>
+    function changeColor(elem, col) {
+        elem.style.color = col
+    }
+
+    function getSimulations() {
+        $.get("/getpreviousscaling", function (data, status) {
+
+        })
+    }
+</script>
+
 {{template "header" .}}
 <body>
     {{template "nav_bar" .}}
