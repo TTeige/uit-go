@@ -4,25 +4,73 @@
 <html>
 
 <script>
-    function changeColor(elem, col) {
-        elem.style.color = col
+    function dropdownButtonClick(event) {
+        let pid = $(this).parent().attr('id');
+        parSibs = $("#"+pid).siblings();
+        parSibs[0].innerText = event.target.innerText;
+
+        $.ajax({
+            url: "/simulation/?id=" + event.target.innerText + "/",
+            success: function (data) {
+                data = JSON.parse(data);
+                for (let i = 0; i < data.length; i++) {
+                    console.log(data)
+                }
+            }
+        })
     }
 
     function getSimulations() {
-        $.get("/getpreviousscaling", function (data, status) {
-
+        $.ajax({
+            url: "/simulation/all",
+            success: function (data) {
+                data = JSON.parse(data);
+                for (let i = 0; i < data.length; i++) {
+                    let dropElem = $("<a></a>").text(data[i].Name).addClass("dropdown-item");
+                    dropElem.click(dropdownButtonClick);
+                    $("#simSelector0").append(dropElem);
+                    let dropElem1 = $("<a></a>").text(data[i].Name).addClass("dropdown-item");
+                    dropElem1.click(dropdownButtonClick);
+                    $("#simSelector1").append(dropElem1);
+                }
+            }
         })
     }
 </script>
 
 {{template "header" .}}
-<body>
-    {{template "nav_bar" .}}
-    <div class="content">
-        <h1>Auto scaling overview</h1>
-        <p>Select an auto scaling run to view the decisions and compare it to others</p>
+<body onload="getSimulations()">
+{{template "nav_bar" .}}
+<div class="content">
+    <h1>Auto scaling overview</h1>
+    <p>Select an auto scaling run to view the decisions and compare it to others</p>
+    <div class="container">
+        <div class="row">
+            <div class="col-sm">
+                <div class="dropdown">
+                    <button id="dropdownBtn0" class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton"
+                            data-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
+                        Select Simulation
+                    </button>
+                    <div id="simSelector0" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                    </div>
+                </div>
+            </div>
+            <div class="col-sm">
+                <div class="dropdown">
+                    <button id="dropdownBtn1" class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown"
+                            aria-haspopup="true" aria-expanded="false">
+                        Select Second Simulation
+                    </button>
+                    <div id="simSelector1" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    {{template "footer" .}}
+</div>
+{{template "footer" .}}
 </body>
 </html>
 {{end}}
