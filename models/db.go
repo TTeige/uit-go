@@ -3,52 +3,15 @@ package models
 import (
 	"database/sql"
 	_ "github.com/lib/pq"
-	"encoding/json"
 	"net/http"
 	"strconv"
 	"fmt"
+	"time"
+	"log"
+	"github.com/tteige/uit-go/autoscale"
 )
 
-type inputFas struct {
-	Url string `json:"url"`
-}
-
-type dataUrl struct {
-	InputFas inputFas `json:"input.fas"`
-}
-
-type attempt struct {
-	ExecutorId          string  `json:"executorId"`
-	State               string  `json:"state"`
-	AttemptId           string  `json:"attemptId"`
-	Tag                 string  `json:"tag"`
-	TimeCreated         string  `json:"timeCreated"`
-	TimeStarted         string  `json:"timeStarted"`
-	TimeEnded           string  `json:"timeEnded"`
-	LastHeartbeat       string  `json:"lastHeartbeat"`
-	RuntimeMillis       int     `json:"runtimeMillis"`
-	QueueDurationMillis int     `json:"queueDurationMillis"`
-	Outputs             dataUrl `json:"outputs"`
-	Priority            int     `json:"priority"`
-}
-
-type metaJob struct {
-	Id                       string     `json:"jobId"`
-	TimeSubmitted            string     `json:"timeSubmitted"`
-	State                    string     `json:"state"`
-	UserId                   string     `json:"userId"`
-	Tag                      string     `json:"tag"`
-	Priority                 int        `json:"priority"`
-	Hold                     bool       `json:"hold"`
-	Parameters               Parameters `json:"parameters"`
-	Inputs                   dataUrl    `json:"inputs"`
-	Outputs                  dataUrl    `json:"outputs"`
-	TotalRuntimeMillis       int64      `json:"totalRuntimeMillis"`
-	TotalQueueDurationMillis int64      `json:"totalQueueDurationMillis"`
-	Attempts                 []attempt  `json:"attempts"`
-}
-
-func getTotalDuration(job metaJob) (int64, error) {
+func getTotalDuration(job autoscale.MetapipeJob) (int64, error) {
 	var totalDuration int64
 
 	if job.TotalRuntimeMillis == 0 {
@@ -91,32 +54,45 @@ func insertJobAndParam(db *sql.DB, job Job, par Parameters) error {
 	return nil
 }
 
-func InitDatabase(db *sql.DB) error {
+func InitDatabase(db *sql.DB, auth autoscale.Oath2) error {
 
-	jobs, err := GetAllJobs(db)
-	if err != nil {
-		return err
+	//jobs, err := GetAllJobs(db)
+	//if err != nil && err != sql.ErrNoRows {
+	//	return err
+	//}
+	//
+	//if len(jobs) > 0 {
+	//	for _, j := range jobs {
+	//		if j.InputDataSize == 0 {
+	//			doUpdate, err := getJobInputSize(j, authToken)
+	//			if err != nil {
+	//				return err
+	//			}
+	//			if doUpdate {
+	//				err = UpdateJob(db, *j)
+	//				if err != nil {
+	//					return err
+	//				}
+	//			}
+	//		}
+	//	}
+	//	return nil
+	//}
+	client := autoscale.RetryClient{
+		Auth:        auth,
+		MaxAttempts: 3,
+		Client: http.Client{
+			Timeout: time.Second * 10,
+		},
 	}
-
-	if len(jobs) > 0 {
-		return nil
-	}
-
-	resp, err := http.Get("https://jobs.metapipe.uit.no/jobs")
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	var all []metaJob
-	dec := json.NewDecoder(resp.Body)
-	err = dec.Decode(&all)
+	all, err := client.GetAllMetapipeJobs()
 	if err != nil {
 		return err
 	}
 	/*
 	TODO: Add batch insertion instead of individual inserts, not a problem yet, but if the database grows it will become slow
 	*/
+	log.Printf("Begin insertions")
 	for _, job := range all {
 		if job.State == "FINISHED" {
 			totalDuration, err := getTotalDuration(job)
@@ -132,8 +108,16 @@ func InitDatabase(db *sql.DB) error {
 				InputDataSize: 0,
 				QueueDuration: job.TotalQueueDurationMillis,
 			}
-			par := job.Parameters
-			par.JobId = job.Id
+			par := Parameters{
+				MetapipeParameter: job.Parameters,
+				JobId:             job.Id,
+			}
+
+			s, err := client.GetMetapipeJobSize(job.Id)
+			dbJob.InputDataSize = s
+			if err != nil {
+				return err
+			}
 
 			err = insertJobAndParam(db, dbJob, par)
 			if err != nil {
@@ -141,6 +125,7 @@ func InitDatabase(db *sql.DB) error {
 			}
 		}
 	}
+	log.Printf("Insertions complete")
 
 	return nil
 }

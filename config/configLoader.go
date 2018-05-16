@@ -13,6 +13,7 @@ type Config interface {
 type FullConfig struct {
 	DBConfig      DatabaseConfig
 	ServiceConfig ServiceConfig
+	OAuthConf     MetapipeOauth2Config
 }
 
 type DatabaseConfig struct {
@@ -24,6 +25,11 @@ type DatabaseConfig struct {
 type ServiceConfig struct {
 	Hostname string `yaml:"host"`
 	Port     string `yaml:"port"`
+}
+
+type MetapipeOauth2Config struct {
+	Username     string `yaml:"uname"`
+	ClientSecret string `yaml:"client_secret"`
 }
 
 func (conf *DatabaseConfig) LoadConfig() error {
@@ -52,12 +58,30 @@ func (conf *ServiceConfig) LoadConfig() error {
 	return nil
 }
 
+func (conf *MetapipeOauth2Config) LoadConfig() error {
+	configLocation := os.Getenv("OAUTH2_CONFIG_AUTOSCALE")
+	configData, err := ioutil.ReadFile(configLocation)
+	if err != nil {
+		return err
+	}
+	err = yaml.Unmarshal(configData, conf)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+
 func (conf *FullConfig) LoadConfig() error {
 	err := conf.DBConfig.LoadConfig()
 	if err != nil {
 		return err
 	}
 	err = conf.ServiceConfig.LoadConfig()
+	if err != nil {
+		return err
+	}
+	err = conf.OAuthConf.LoadConfig()
 	if err != nil {
 		return err
 	}

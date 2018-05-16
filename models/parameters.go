@@ -1,16 +1,13 @@
 package models
 
-import "database/sql"
+import (
+	"database/sql"
+	"github.com/tteige/uit-go/autoscale"
+)
 
 type Parameters struct {
-	InputContigsCutoff     int  `json:"inputContigsCutoff"`
-	UseBlastUniref50       bool `json:"useBlastUniref50"`
-	UseInterproScan5       bool `json:"useInterproScan5"`
-	UsePriam               bool `json:"usePriam"`
-	RemoveNonCompleteGenes bool `json:"removeNonCompleteGenes"`
-	ExportMergedGenbank    bool `json:"exportMergedGenbank"`
-	UseBlastMarRef         bool `json:"useBlastMarRef"`
-	JobId                  string
+	autoscale.MetapipeParameter
+	JobId string
 }
 
 func InsertParameter(db *sql.DB, par Parameters) error {
@@ -28,4 +25,15 @@ func InsertParameter(db *sql.DB, par Parameters) error {
 		return err
 	}
 	return nil
+}
+
+func GetParameter(db *sql.DB, job string) (Parameters, error) {
+	var par Parameters
+	err := db.QueryRow("SELECT * FROM parameters WHERE jobid = $1", job).Scan(&par.InputContigsCutoff,
+		&par.UseBlastUniref50, &par.UseInterproScan5, &par.UsePriam, &par.RemoveNonCompleteGenes, &par.ExportMergedGenbank,
+		&par.UseBlastMarRef, &par.JobId)
+	if err != nil {
+		return Parameters{}, nil
+	}
+	return par, nil
 }

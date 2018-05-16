@@ -11,5 +11,6 @@ type NaiveAlgorithm struct {
 }
 
 func (n NaiveAlgorithm) Step(input autoscale.AlgorithmInput, stepTime time.Time) (*autoscale.AlgorithmOutput, error) {
+
 	return nil, nil
 }

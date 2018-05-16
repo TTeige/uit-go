@@ -9,6 +9,8 @@ import (
 	"github.com/tteige/uit-go/algorithm"
 	"os"
 	"github.com/tteige/uit-go/config"
+	"github.com/tteige/uit-go/estimator"
+	"github.com/tteige/uit-go/autoscale"
 )
 
 func main() {
@@ -29,10 +31,28 @@ func main() {
 		return
 	}
 
-	err = models.InitDatabase(db)
+	auth := autoscale.Oath2{
+		User:     conf.OAuthConf.Username,
+		Password: conf.OAuthConf.ClientSecret,
+	}
+
+	_, err = auth.GetSetAccessToken()
+
 	if err != nil {
 		log.Fatal(err)
 		return
+	}
+	// TODO: Reinit database periodically, spawn a job that does this every day
+	if false {
+		err = models.InitDatabase(db, auth)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+	}
+
+	est := estimator.LinearRegression{
+		DB: db,
 	}
 
 	if *service {
@@ -52,6 +72,7 @@ func main() {
 			Hostname:  serviceHostname,
 			Algorithm: alg,
 			Log:       log.New(os.Stdout, "SIMULATOR LOGGER: ", log.Lshortfile|log.LstdFlags),
+			Estimator: &est,
 		}
 		sim.Run()
 	}

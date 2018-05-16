@@ -13,6 +13,7 @@ import (
 	"github.com/segmentio/ksuid"
 	"strings"
 	"encoding/json"
+	"net/url"
 )
 
 type Simulator struct {
@@ -23,6 +24,7 @@ type Simulator struct {
 	Log       *log.Logger
 	templates *template.Template
 	tmplLoc   string
+	Estimator autoscale.Estimator
 }
 
 func (sim *Simulator) Run() {
@@ -30,6 +32,11 @@ func (sim *Simulator) Run() {
 	sim.tmplLoc = "simulator/templates/"
 	sim.templates = template.Must(template.ParseFiles(sim.tmplLoc+"footer.html", sim.tmplLoc+"header.html",
 		sim.tmplLoc+"index.html", sim.tmplLoc+"navbar.html"))
+	err := sim.Estimator.Init()
+	if err != nil {
+		sim.Log.Fatal(err)
+		return
+	}
 	sim.serveSim()
 }
 
@@ -38,7 +45,7 @@ func (sim *Simulator) serveSim() {
 	r.HandleFunc("/", sim.indexHandle).Methods("GET")
 	r.HandleFunc("/simulate/", sim.simulationHandle).Methods("POST")
 	r.HandleFunc("/simulate/instancetype/", sim.simulationHandle).Methods("POST")
-	r.HandleFunc("/simulate/{id}/", sim.getPreviousScalingHandle).Methods("GET")
+	r.HandleFunc("/simulation/", sim.getPreviousScalingHandle).Methods("GET")
 	r.HandleFunc("/simulation/all", sim.getAllSimulations).Methods("GET")
 	http.ListenAndServe(sim.Hostname, r)
 }
@@ -54,11 +61,32 @@ func (sim *Simulator) getAllSimulations(w http.ResponseWriter, r *http.Request) 
 
 	b, err := json.Marshal(sims)
 	w.Write(b)
-	w.WriteHeader(http.StatusOK)
 }
 
 func (sim *Simulator) getPreviousScalingHandle(w http.ResponseWriter, r *http.Request) {
+	sim.Log.Print("GetAllSimulationsRequest: /simulation/?id=")
+	raw, err := url.Parse(r.RequestURI)
+	if err != nil {
+		sim.Log.Print(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	var simList [][]models.SimEvent
+	q := raw.Query()
+	if val, ok := q["id"]; ok {
+		for _, i := range val {
+			events, err := models.GetSimEvents(sim.DB, i)
+			if err != nil && err != sql.ErrNoRows {
+				sim.Log.Print(err)
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			simList = append(simList, events)
+		}
+	}
 
+	b, err := json.Marshal(simList)
+	w.Write(b)
 }
 
 func (sim *Simulator) addInstanceType(w http.ResponseWriter, r *http.Request) {
@@ -105,7 +133,6 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 				State:      "RUNNING",
 				Priority:   2000,
 			},
-			StateTransitionTimes: nil,
 			Deadline:             time.Now().Add(time.Hour),
 		},
 	}
