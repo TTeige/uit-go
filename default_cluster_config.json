@@ -1,0 +1,87 @@
+{
+  "aws": {
+    "name": "aws",
+    "limit": 10,
+    "tag": "aws",
+    "types": {
+      "c5-4xl": {
+        "name": "c5-4xl",
+        "price": 0.68
+      }
+    },
+    "instances": [
+      {
+        "id": "test_aws_1",
+        "type": "c5-4xl",
+        "state": "ACTIVE"
+      },
+      {
+        "id": "test_aws_2",
+        "type": "c5-4xl",
+        "state": "ACTIVE"
+      },
+      {
+        "id": "test_aws_3",
+        "type": "c5-4xl",
+        "state": "ACTIVE"
+      }
+    ]
+  },
+  "csc": {
+    "name": "csc",
+    "limit": 12,
+    "tag": "csc",
+    "types": {
+      "default": {
+        "name": "default",
+        "price": 0.78
+      }
+    },
+    "instances": [
+      {
+        "id": "test_csc_1",
+        "type": "default",
+        "state": "ACTIVE"
+      },
+      {
+        "id": "test_csc_2",
+        "type": "default",
+        "state": "ACTIVE"
+      },
+      {
+        "id": "test_csc_3",
+        "type": "default",
+        "state": "ACTIVE"
+      }
+    ]
+  },
+  "metapipe": {
+    "name": "stallo",
+    "limit": 8,
+    "tag": "metapipe",
+    "types": {
+      "default": {
+        "name": "default",
+        "price": 0.48
+      }
+    },
+    "instances": [
+      {
+        "id": "metapipe_test_1",
+        "type": "default",
+        "state": "ACTIVE"
+      },
+      {
+        "id": "metapipe_test_1",
+        "type": "default",
+        "state": "ACTIVE"
+      },
+      {
+        "id": "metapipe_test_1",
+        "type": "default",
+        "state": "ACTIVE"
+      }
+    ]
+  }
+
+}

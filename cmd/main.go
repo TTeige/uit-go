@@ -11,6 +11,8 @@ import (
 	"github.com/tteige/uit-go/config"
 	"github.com/tteige/uit-go/estimator"
 	"github.com/tteige/uit-go/autoscale"
+	"encoding/json"
+	"github.com/tteige/uit-go/clouds"
 )
 
 func main() {
@@ -67,6 +69,36 @@ func main() {
 			ScaleUpThreshold:   10,
 			ScaleDownThreshold: 3,
 		}
+		simClusterMap := make(autoscale.ClusterCollection)
+
+		configLocation := os.Getenv("SIM_CLUSTER_CONFIG")
+		reader, err := os.Open(configLocation)
+		if err != nil {
+			log.Fatal(err)
+			return
+		}
+
+		dec := json.NewDecoder(reader)
+		err = dec.Decode(&simClusterMap)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		simCloudMap := make(autoscale.CloudCollection)
+
+		simCloudMap[autoscale.CPouta] = &clouds.SimCloud{
+			Cluster: simClusterMap[autoscale.CPouta],
+			Db:      db,
+		}
+		simCloudMap[autoscale.AWS] = &clouds.SimCloud{
+			Cluster: simClusterMap[autoscale.AWS],
+			Db:      db,
+		}
+		simCloudMap[autoscale.Stallo] = &clouds.SimCloud{
+			Cluster: simClusterMap[autoscale.Stallo],
+			Db:      db,
+		}
+
 		sim := simulator.Simulator{
 			DB:        db,
 			Hostname:  serviceHostname,

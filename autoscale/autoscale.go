@@ -4,10 +4,19 @@ import (
 	"time"
 )
 
+const (
+	AWS    = "aws"
+	Stallo = "metapipe"
+	CPouta = "csc"
+)
+
+type ClusterCollection map[string]Cluster
+type CloudCollection map[string]Cloud
+
 type Instance struct {
-	Id    string
-	Type  InstanceType
-	State string
+	Id    string `json:"id"`
+	Type  string `json:"type"`
+	State string `json:"state"`
 }
 
 type ScalingEvent struct {
@@ -17,47 +26,36 @@ type ScalingEvent struct {
 }
 
 type InstanceType struct {
-	Name           string
-	PriceIncrement int
+	Name           string  `json:"name"`
+	PriceIncrement float64 `json:"price"`
 }
 
 type Cluster struct {
-	Name            string
-	Limit           int
-	AcceptTags      []string
-	Types           map[string]InstanceType
-	ActiveInstances []Instance
+	Name            string                  `json:"name"`
+	Limit           int                     `json:"limit"`
+	AcceptTag       string                  `json:"tag"`
+	Types           map[string]InstanceType `json:"types"`
+	ActiveInstances []Instance              `json:"instances"`
 }
 
 type AlgorithmInput struct {
 	JobQueue []AlgorithmJob
-	Clusters []Cluster
+	Clouds   CloudCollection
 }
 
 type AlgorithmOutput struct {
-	Instances []ScalingEvent
+	Instances []Instance
 	JobQueue  []AlgorithmJob
 }
 
-type BaseJob struct {
-	Id         string
-	Tags       []string
-	Parameters []string
-	State      string
-	Priority   int
-}
-
 type AlgorithmJob struct {
-	BaseJob
-	Deadline time.Time
-}
-
-type Cloud interface {
-	ProcessEvent(event ScalingEvent, runId string) error
-	AddInstance(instance *Instance) (string, error)
-	DeleteInstance(id string) error
-	GetInstances() ([]Instance, error)
-	GetInstanceTypes() (map[string]InstanceType, error)
+	Id            string
+	Tag           string
+	Parameters    []string
+	State         string
+	Priority      int
+	ExecutionTime int64
+	Deadline      time.Time
 }
 
 type InputFas struct {
@@ -82,7 +80,6 @@ type Attempt struct {
 	Outputs             dataUrl `json:"outputs"`
 	Priority            int     `json:"priority"`
 }
-
 
 type MetapipeParameter struct {
 	InputContigsCutoff     int  `json:"inputContigsCutoff"`
@@ -111,10 +108,20 @@ type MetapipeJob struct {
 }
 
 type Algorithm interface {
-	Step(input AlgorithmInput, stepTime time.Time) (*AlgorithmOutput, error)
+	Step(input AlgorithmInput, stepTime time.Time) (AlgorithmOutput, error)
 }
 
 type Estimator interface {
 	Init() error
 	ProcessQueue(jobs []MetapipeJob) ([]AlgorithmJob, error)
+}
+
+type Cloud interface {
+	Authenticate() error
+	SetScalingId(id string)
+	AddInstance(instance *Instance) (string, error)
+	DeleteInstance(id string) error
+	GetInstances() ([]Instance, error)
+	GetInstanceTypes() (map[string]InstanceType, error)
+	GetInstanceLimit() int
 }

@@ -6,48 +6,61 @@ import (
 	"time"
 	"database/sql"
 	"github.com/tteige/uit-go/models"
+	"github.com/segmentio/ksuid"
 )
 
 // DOCS for openstack golang http://gophercloud.io/docs/compute/
 
-type SimCpouta struct {
-	autoscale.Cluster
+type SimCloud struct {
+	Cluster autoscale.Cluster
 	// Needs a database handle to interact with the "external compute system". The database emulates the network
 	// connection
-	Db *sql.DB
+	Db    *sql.DB
 	runId string
 }
 
-func (c *SimCpouta) ProcessEvent(event autoscale.ScalingEvent, runId string) error {
-	c.runId = runId
-	if event.Type == "CREATED" {
-		_, err := c.AddInstance(&event.Instance)
-		if err != nil {
-			return err
-		}
-	}
-	if event.Type == "DELETED" {
-		err := c.DeleteInstance(event.Instance.Id)
-		if err != nil {
-			return err
-		}
-	}
-	//TODO: Implement propper reusage of instances.
-	if event.Type == "REUSE" {
-		_, err := c.AddInstance(&event.Instance)
-		if err != nil {
-			return err
-		}
-	}
+func (c *SimCloud) SetScalingId(id string) {
+	c.runId = id
+}
+
+func (c *SimCloud) Authenticate() error {
 	return nil
 }
 
-func (c *SimCpouta) AddInstance(instance *autoscale.Instance) (string, error) {
-	available, err := c.GetInstances()
+func (c *SimCloud) GetInstanceLimit() int {
+	return c.Cluster.Limit
+}
+
+//func (c *SimCloud) ProcessEvent(event autoscale.ScalingEvent, runId string) error {
+//	c.runId = runId
+//	if event.Type == "CREATED" {
+//		_, err := c.AddInstance(&event.Instance)
+//		if err != nil {
+//			return err
+//		}
+//	}
+//	if event.Type == "DELETED" {
+//		err := c.DeleteInstance(event.Instance.Id)
+//		if err != nil {
+//			return err
+//		}
+//	}
+//	//TODO: Implement propper reusage of instances.
+//	if event.Type == "REUSE" {
+//		_, err := c.AddInstance(&event.Instance)
+//		if err != nil {
+//			return err
+//		}
+//	}
+//	return nil
+//}
+
+func (c *SimCloud) AddInstance(instance *autoscale.Instance) (string, error) {
+	//available, err := c.GetInstances()
 	newInstanceName := ""
-	if err != nil {
-		return newInstanceName, err
-	}
+	//if err != nil {
+	//	return newInstanceName, err
+	//}
 	//create new server if none are up and available
 	//Assume 1 server is up and available, 2 servers are up and unavailable
 	//if a server is up and available, resize it
@@ -55,31 +68,35 @@ func (c *SimCpouta) AddInstance(instance *autoscale.Instance) (string, error) {
 	//return the new id of the instance
 	// Gives a range of 100-500 milisec delay for fetching available servers
 
-	for _, i := range available {
-		// Check for an available VM / server first
-		if i.Type.Name == instance.Type.Name {
-			// The correct type is found and is available for usage.
-			if i.State == "Shutoff" {
-				// The server / VM is in the correct state and has the correct flavor
-				models.WriteSimEvent(c.Db, models.SimEvent{
-					SimId:      c.runId,
-					Created:    time.Now(),//Needs to be changed to support the time abstraction
-					InstanceId: i.Id,
-					Type:       "REUSED",
-				})
-				newInstanceName = i.Id
-				i.State = "Active"
-				return newInstanceName, nil
-			}
-		}
-	}
+	//for _, i := range available {
+	//	// Check for an available VM / server first
+	//	if i.Type.Name == instance.Type.Name {
+	//		// The correct type is found and is available for usage.
+	//		if i.State == "Shutoff" {
+	//			// The server / VM is in the correct state and has the correct flavor
+	//			models.WriteSimEvent(c.Db, models.SimEvent{
+	//				SimId:      c.runId,
+	//				Created:    time.Now(),//Needs to be changed to support the time abstraction
+	//				InstanceId: i.Id,
+	//				Type:       "REUSED",
+	//			})
+	//			newInstanceName = i.Id
+	//			i.State = "Active"
+	//			return newInstanceName, nil
+	//		}
+	//	}
+	//}
+	instance.Id = ksuid.New().String()
 
-	models.WriteSimEvent(c.Db, models.SimEvent{
+	err := models.WriteSimEvent(c.Db, models.SimEvent{
 		SimId:      c.runId,
 		Created:    time.Now(),
 		InstanceId: instance.Id,
 		Type:       "CREATED",
 	})
+	if err != nil {
+		return "", err
+	}
 
 	newInstanceName = instance.Id
 	instance.State = "Active"
@@ -87,15 +104,15 @@ func (c *SimCpouta) AddInstance(instance *autoscale.Instance) (string, error) {
 	return newInstanceName, nil
 }
 
-func (c *SimCpouta) DeleteInstance(id string) error {
+func (c *SimCloud) DeleteInstance(id string) error {
 	// Simulates fetching the instances, needs to be done since it can have changed since the last time
-	instances, err := models.GetInstances(c.Db, c.Name)
+	instances, err := models.GetInstances(c.Db, c.Cluster.Name)
 	if err != nil {
 		return nil
 	}
 	for i, e := range instances {
 		if e.Id == id {
-			c.ActiveInstances = append(instances[:i], instances[i+1:]...)
+			c.Cluster.ActiveInstances = append(instances[:i], instances[i+1:]...)
 			models.WriteSimEvent(c.Db, models.SimEvent{
 				SimId:      c.runId,
 				Created:    time.Now(),//Needs to be changed to support the time abstraction
@@ -108,7 +125,7 @@ func (c *SimCpouta) DeleteInstance(id string) error {
 	return nil
 }
 
-func (c *SimCpouta) GetInstances() ([]autoscale.Instance, error) {
+func (c *SimCloud) GetInstances() ([]autoscale.Instance, error) {
 	// simulates the call to get all instances from cPouta, but just fetches the active instances at runtime
 	/*
 	// We have the option of filtering the server list. If we want the full
@@ -127,22 +144,22 @@ func (c *SimCpouta) GetInstances() ([]autoscale.Instance, error) {
 		}
 	})
 	*/
-	if c.ActiveInstances == nil {
+	if c.Cluster.ActiveInstances == nil {
 		// Only load static data from the database once
-		i, err := models.GetInstances(c.Db, "cpouta")
+		i, err := models.GetInstances(c.Db, autoscale.CPouta)
 		if err != nil {
 			return nil, err
 		}
-		c.ActiveInstances = i
+		c.Cluster.ActiveInstances = i
 	}
 
-	return c.ActiveInstances, nil
+	return c.Cluster.ActiveInstances, nil
 }
 
-func (c *SimCpouta) GetInstanceTypes() (map[string]autoscale.InstanceType, error) {
+func (c *SimCloud) GetInstanceTypes() (map[string]autoscale.InstanceType, error) {
 	// Request to fetch all flavors, not sure if any API support this
 
-	return c.Types, nil
+	return c.Cluster.Types, nil
 }
 
 func stall_for_feedback(min int32, max int32) {

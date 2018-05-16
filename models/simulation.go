@@ -73,15 +73,15 @@ func GetSimulation(db *sql.DB, sim_name string) (*Simulation, error) {
 	return sim, nil
 }
 
-func CreateSimulation(db *sql.DB, sim_name string, startTime time.Time) (*Simulation, error) {
+func CreateSimulation(db *sql.DB, sim_name string, startTime time.Time) (string, error) {
 	_, err := db.Exec("INSERT INTO simulation (name, started) VALUES ($1, $2)",
 		sim_name, startTime)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	sim, err := GetSimulation(db, sim_name)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
-	return sim, nil
+	return sim.Name, nil
 }

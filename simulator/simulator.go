@@ -11,7 +11,6 @@ import (
 	"github.com/tteige/uit-go/models"
 	"strconv"
 	"github.com/segmentio/ksuid"
-	"strings"
 	"encoding/json"
 	"net/url"
 )
@@ -99,7 +98,7 @@ func (sim *Simulator) addInstanceType(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	increment, err := strconv.Atoi(r.PostForm.Get("price_increment"))
+	increment, err := strconv.ParseFloat(r.PostForm.Get("price_increment"), 64)
 	if err != nil {
 		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -126,14 +125,31 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 
 	jobs := []autoscale.AlgorithmJob{
 		{
-			BaseJob: autoscale.BaseJob{
-				Id:         "123abc",
-				Tags:       []string{"aws", "cpouta"},
-				Parameters: []string{"removeNonCompleteGenes", "useBlastUniref50"},
-				State:      "RUNNING",
-				Priority:   2000,
-			},
-			Deadline:             time.Now().Add(time.Hour),
+			Id:            "123abc",
+			Tag:           "aws",
+			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			State:         "RUNNING",
+			Priority:      2000,
+			Deadline:      time.Now().Add(time.Hour),
+			ExecutionTime: 1301847471273,
+		},
+		{
+			Id:            "1213455abc",
+			Tag:           "aws",
+			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			State:         "QUEUED",
+			Priority:      2000,
+			Deadline:      time.Now().Add(time.Hour * 2),
+			ExecutionTime: 13018471273,
+		},
+		{
+			Id:            "123aaaaaaabc",
+			Tag:           "aws",
+			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			State:         "QUEUED",
+			Priority:      2000,
+			Deadline:      time.Now().Add(time.Hour * 3),
+			ExecutionTime: 1471273,
 		},
 	}
 
@@ -159,33 +175,24 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//TODO: Add cluster loading from form and from database
-
-	clust, err := models.GetDefaultClusters(sim.DB)
-	if err != nil && err != sql.ErrNoRows {
-		sim.Log.Print(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	var algInput autoscale.AlgorithmInput
 	algInput.JobQueue = jobs
-	algInput.Clusters = clust
+	algInput.Clouds = sim.SimClouds
 
-	SimStartTime := time.Now()
 	friendlyName := r.PostForm.Get("name")
 
 	if friendlyName == "" {
 		friendlyName = ksuid.New().String()
 	}
 
-
-	simHandle, err := models.CreateSimulation(sim.DB, friendlyName, SimStartTime)
+	simId, err := models.CreateSimulation(sim.DB, friendlyName, time.Now())
+	setScalingIds(sim.SimClouds, simId)
 	if err != nil {
 		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	algStartTime := time.Now()
 	for i := 0; i < 10; i++ {
 		out, err := sim.Algorithm.Step(algInput, algStartTime.Add(time.Minute*time.Duration(30*i)))
@@ -194,23 +201,21 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if out == nil {
-			continue
-		}
+
 		sim.Log.Printf("%+v", out)
 
-		for _, e := range out.Instances {
-			for key, cluster := range sim.SimClouds {
-				if strings.Contains(strings.ToLower(e.ClusterTag), strings.ToLower(key)) {
-					err = cluster.ProcessEvent(e, simHandle.Name)
-					if err != nil {
-						sim.Log.Print(err)
-						http.Error(w, err.Error(), http.StatusInternalServerError)
-						return
-					}
-				}
-			}
-		}
+		//for _, e := range out.Instances {
+		//	for key, cluster := range sim.SimClouds {
+		//		if strings.Contains(strings.ToLower(e.ClusterTag), strings.ToLower(key)) {
+		//			err = cluster.ProcessEvent(e, simId.Name)
+		//			if err != nil {
+		//				sim.Log.Print(err)
+		//				http.Error(w, err.Error(), http.StatusInternalServerError)
+		//				return
+		//			}
+		//		}
+		//	}
+		//}
 		algInput.JobQueue = out.JobQueue
 	}
 }
@@ -229,4 +234,10 @@ func (sim *Simulator) renderTemplate(w http.ResponseWriter, tmpl string, p inter
 		return err
 	}
 	return nil
+}
+
+func setScalingIds(clouds autoscale.CloudCollection, id string) {
+	for _, c := range clouds {
+		c.SetScalingId(id)
+	}
 }

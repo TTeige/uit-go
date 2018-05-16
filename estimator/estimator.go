@@ -4,7 +4,6 @@ import (
 	"github.com/tteige/uit-go/autoscale"
 	"github.com/sajari/regression"
 	"github.com/tteige/uit-go/models"
-	"log"
 	"strings"
 	"database/sql"
 )
@@ -70,14 +69,14 @@ func generateParamBin(regJob RegJob) float64 {
 }
 
 func getTag(tag string) (string) {
-	if strings.Contains(tag, "aws") {
-		return "aws"
+	if strings.Contains(tag, autoscale.AWS) {
+		return autoscale.AWS
 	}
-	if strings.Contains(tag, "csc") {
-		return "csc"
+	if strings.Contains(tag, autoscale.CPouta) {
+		return autoscale.CPouta
 	}
-	if strings.Contains(tag, "metapipe") && !strings.Contains(tag, "aws") && ! strings.Contains(tag, "csc") {
-		return "metapipe"
+	if strings.Contains(tag, autoscale.Stallo) && !strings.Contains(tag, autoscale.AWS) && ! strings.Contains(tag, autoscale.CPouta) {
+		return autoscale.Stallo
 	}
 	return "undefined"
 }

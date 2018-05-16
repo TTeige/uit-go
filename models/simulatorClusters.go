@@ -5,7 +5,7 @@ import (
 	"github.com/tteige/uit-go/autoscale"
 )
 
-func GetDefaultClusters(db *sql.DB) ([]autoscale.Cluster, error) {
+func GetDefaultClusters(db *sql.DB) (autoscale.ClusterCollection, error) {
 	cPouta, err := GetCluster(db, "SimcPouta")
 	if err != nil {
 		return nil, err
@@ -19,7 +19,11 @@ func GetDefaultClusters(db *sql.DB) ([]autoscale.Cluster, error) {
 		return nil, err
 	}
 
-	return []autoscale.Cluster{cPouta, aws, stallo}, nil
+	cMap := make(map[string]autoscale.Cluster)
+	cMap[autoscale.Stallo] = stallo
+	cMap[autoscale.CPouta] = cPouta
+	cMap[autoscale.AWS] = aws
+	return cMap, nil
 }
 
 func GetCluster(db *sql.DB, name string) (autoscale.Cluster, error) {
@@ -31,12 +35,12 @@ func GetCluster(db *sql.DB, name string) (autoscale.Cluster, error) {
 	var pc partialCluster
 	var cluster autoscale.Cluster
 
-	err := db.QueryRow("SELECT * FROM simcluster WHERE name=$1", name).Scan(&pc)
+	err := db.QueryRow("SELECT * FROM simcluster WHERE name=$1", name).Scan(&pc.Name, &pc.Limit)
 	if err != nil {
 		return cluster, err
 	}
 
-	tags, err := GetAcceptTags(db, name)
+	tag, err := GetAcceptTags(db, name)
 	if err != nil {
 		return cluster, err
 	}
@@ -54,7 +58,7 @@ func GetCluster(db *sql.DB, name string) (autoscale.Cluster, error) {
 	cluster = autoscale.Cluster{
 		Name:            pc.Name,
 		Limit:           pc.Limit,
-		AcceptTags:      tags,
+		AcceptTag:       tag,
 		Types:           types,
 		ActiveInstances: instances,
 	}
@@ -62,28 +66,29 @@ func GetCluster(db *sql.DB, name string) (autoscale.Cluster, error) {
 	return cluster, nil
 }
 
-func GetAcceptTags(db *sql.DB, cluster_name string) ([]string, error) {
-	rows, err := db.Query("SELECT tag_name FROM cluster_to_tag WHERE cluster_name = $1", cluster_name)
-	defer rows.Close()
-	if err != nil {
-		return nil, err
-	}
-
-	tags := make([]string, 0)
-
-	for rows.Next() {
-		var tag string
-		err = rows.Scan(&tag)
-		if err != nil {
-			return nil, err
-		}
-		tags = append(tags, tag)
-	}
-	return tags, nil
+func GetAcceptTags(db *sql.DB, clusterName string) (string, error) {
+	//rows, err := db.Query("SELECT tag_name FROM cluster_to_tag WHERE cluster_name = $1", clusterName)
+	//defer rows.Close()
+	//if err != nil {
+	//	return nil, err
+	//}
+	//
+	//tags := make([]string, 0)
+	//
+	//for rows.Next() {
+	//	var tag string
+	//	err = rows.Scan(&tag)
+	//	if err != nil {
+	//		return nil, err
+	//	}
+	//	tags = append(tags, tag)
+	//}
+	//return tags, nil
+	return "", nil
 }
 
-func GetInstances(db *sql.DB, cluster_name string) ([]autoscale.Instance, error) {
-	rows, err := db.Query("SELECT id, type, state FROM cluster_instance WHERE cluster_name = $1", cluster_name)
+func GetInstances(db *sql.DB, clusterName string) ([]autoscale.Instance, error) {
+	rows, err := db.Query("SELECT id, type, state FROM cluster_instance WHERE cluster_name = $1", clusterName)
 	instances := make([]autoscale.Instance, 0)
 	for rows.Next() {
 		var instance autoscale.Instance
@@ -96,13 +101,13 @@ func GetInstances(db *sql.DB, cluster_name string) ([]autoscale.Instance, error)
 	return instances, err
 }
 
-func GetTypes(db *sql.DB, cluster_name string) (map[string]autoscale.InstanceType, error) {
+func GetTypes(db *sql.DB, clusterName string) (map[string]autoscale.InstanceType, error) {
 	stmt := `SELECT s2.name, s2.priceincrement 
 	FROM cluster_to_instance_type 
 	INNER JOIN instance_types s2 ON cluster_to_instance_type.instance_name 
 	WHERE cluster_to_instance_type.cluster_name = $1`
 
-	rows, err := db.Query(stmt, cluster_name)
+	rows, err := db.Query(stmt, clusterName)
 	defer rows.Close()
 	if err != nil {
 		return nil, err
