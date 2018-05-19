@@ -10,7 +10,7 @@ type NaiveAlgorithm struct {
 	ScaleDownThreshold int
 }
 
-func (n NaiveAlgorithm) Step(input autoscale.AlgorithmInput, stepTime time.Time) (autoscale.AlgorithmOutput, error) {
+func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, stepTime time.Time) (autoscale.AlgorithmOutput, error) {
 	queueMap := make(map[string][]autoscale.AlgorithmJob)
 	var outInstances []autoscale.Instance
 	var out autoscale.AlgorithmOutput
@@ -20,35 +20,60 @@ func (n NaiveAlgorithm) Step(input autoscale.AlgorithmInput, stepTime time.Time)
 	}
 
 	for key, queue := range queueMap {
+		curClust := input.Clouds[key]
+		instances, err := curClust.GetInstances()
+		if err != nil {
+			return out, err
+		}
+
 		for _, job := range queue {
 			if job.State == "RUNNING" {
 				continue
 			}
-			curClust := input.Clouds[key]
-			instances, err := curClust.GetInstances()
-			if err != nil {
-				return out, err
-			}
-			if curClust.GetInstanceLimit() < len(instances) {
+			if curClust.GetInstanceLimit() > len(instances) {
+				if len(instances) == len(queue) {
+					continue
+				}
+				if job.State != "QUEUED" {
+					continue
+				}
 				types, err := curClust.GetInstanceTypes()
 				if err != nil {
 					return autoscale.AlgorithmOutput{}, err
 				}
 				var iType autoscale.InstanceType
 				if key == autoscale.AWS {
-					iType = types["c5_4xl"]
+					iType = types["c5-4xl"]
 				} else if key == autoscale.Stallo {
-					iType = types["default_stallo"]
+					iType = types["default"]
 				} else if key == autoscale.CPouta {
-					iType = types["default_csc"]
+					iType = types["default"]
 				}
 				instance := autoscale.Instance{
 					Id:    "",
 					Type:  iType.Name,
 					State: "",
 				}
-				curClust.AddInstance(&instance)
+				_, err = curClust.AddInstance(&instance)
+				if err != nil {
+					return autoscale.AlgorithmOutput{}, err
+				}
 				outInstances = append(outInstances, instance)
+			}
+		}
+		if len(instances) > (len(queue)) {
+			instances, err := curClust.GetInstances()
+			if err != nil {
+				return autoscale.AlgorithmOutput{}, err
+			}
+			for _, i := range instances {
+				if i.State == "INACTIVE" {
+					err = curClust.DeleteInstance(i.Id)
+					if err != nil {
+						return autoscale.AlgorithmOutput{}, err
+					}
+					outInstances = append(outInstances, i)
+				}
 			}
 		}
 	}
