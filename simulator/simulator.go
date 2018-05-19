@@ -13,17 +13,18 @@ import (
 	"github.com/segmentio/ksuid"
 	"encoding/json"
 	"net/url"
+	"github.com/tteige/uit-go/clouds"
 )
 
 type Simulator struct {
-	DB        *sql.DB
-	Hostname  string
-	SimClouds map[string]autoscale.Cloud
-	Algorithm autoscale.Algorithm
-	Log       *log.Logger
-	templates *template.Template
-	tmplLoc   string
-	Estimator autoscale.Estimator
+	DB          *sql.DB
+	Hostname    string
+	SimClusters autoscale.ClusterCollection
+	Algorithm   autoscale.Algorithm
+	Log         *log.Logger
+	templates   *template.Template
+	tmplLoc     string
+	Estimator   autoscale.Estimator
 }
 
 func (sim *Simulator) Run() {
@@ -131,6 +132,7 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			State:         "RUNNING",
 			Priority:      2000,
 			Deadline:      time.Now().Add(time.Hour),
+			Created:       time.Now().Add(-time.Hour),
 			ExecutionTime: 1301847471273,
 		},
 		{
@@ -139,7 +141,8 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
 			State:         "QUEUED",
 			Priority:      2000,
-			Deadline:      time.Now().Add(time.Hour * 2),
+			Deadline:      time.Now().Add(time.Hour * 3),
+			Created:       time.Now().Add(-time.Hour),
 			ExecutionTime: 13018471273,
 		},
 		{
@@ -149,24 +152,50 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			State:         "QUEUED",
 			Priority:      2000,
 			Deadline:      time.Now().Add(time.Hour * 3),
+			Created:       time.Now().Add(time.Hour),
+			ExecutionTime: 1471273,
+		},
+		{
+			Id:            "a",
+			Tag:           "aws",
+			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			State:         "QUEUED",
+			Priority:      2000,
+			Deadline:      time.Now().Add(time.Hour * 2),
+			Created:       time.Now().Add(time.Hour),
+			ExecutionTime: 1471273,
+		},
+		{
+			Id:            "b",
+			Tag:           "aws",
+			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			State:         "QUEUED",
+			Priority:      2000,
+			Deadline:      time.Now().Add(time.Hour * 1),
+			Created:       time.Now().Add(time.Minute * 30),
+			ExecutionTime: 1471273,
+		},
+		{
+			Id:            "c",
+			Tag:           "aws",
+			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			State:         "QUEUED",
+			Priority:      2000,
+			Deadline:      time.Now().Add(time.Hour * 1),
+			Created:       time.Now().Add(time.Minute * 30),
+			ExecutionTime: 1471273,
+		},
+		{
+			Id:            "d",
+			Tag:           "aws",
+			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			State:         "QUEUED",
+			Priority:      2000,
+			Deadline:      time.Now().Add(time.Hour * 1),
+			Created:       time.Now(),
 			ExecutionTime: 1471273,
 		},
 	}
-
-	//clusters := []autoscale.Cluster{
-	//	{
-	//		Name:       "aws",
-	//		Limit:      100,
-	//		AcceptTags: []string{"aws", "aws-meta"},
-	//		Types:      nil,
-	//	},
-	//	{
-	//		Name:       "cpouta",
-	//		Limit:      1000,
-	//		AcceptTags: []string{"cpouta", "csc"},
-	//		Types:      nil,
-	//	},
-	//}
 
 	err := r.ParseForm()
 	if err != nil {
@@ -176,8 +205,13 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var algInput autoscale.AlgorithmInput
-	algInput.JobQueue = jobs
-	algInput.Clouds = sim.SimClouds
+	simC, err := sim.createClouds(sim.SimClusters)
+	if err != nil {
+		sim.Log.Print(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	algInput.Clouds = simC
 
 	friendlyName := r.PostForm.Get("name")
 
@@ -186,7 +220,7 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	simId, err := models.CreateSimulation(sim.DB, friendlyName, time.Now())
-	setScalingIds(sim.SimClouds, simId)
+	setScalingIds(simC, simId)
 	if err != nil {
 		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -195,29 +229,58 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 
 	algStartTime := time.Now()
 	for i := 0; i < 10; i++ {
-		out, err := sim.Algorithm.Step(algInput, algStartTime.Add(time.Minute*time.Duration(30*i)))
+		if i > 0 {
+			//Simulates a 30 minute interval between each scaling attempt
+			algStartTime = algStartTime.Add(time.Minute*time.Duration(5))
+		}
+		var jInput []autoscale.AlgorithmJob
+		for _, j := range jobs {
+			if j.Created.Before(algStartTime) {
+				jInput = append(jInput, j)
+			}
+		}
+		algInput.JobQueue = jInput
+		out, err := sim.Algorithm.Run(algInput, algStartTime)
 		if err != nil {
 			sim.Log.Print(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-
-		sim.Log.Printf("%+v", out)
-
-		//for _, e := range out.Instances {
-		//	for key, cluster := range sim.SimClouds {
-		//		if strings.Contains(strings.ToLower(e.ClusterTag), strings.ToLower(key)) {
-		//			err = cluster.ProcessEvent(e, simId.Name)
-		//			if err != nil {
-		//				sim.Log.Print(err)
-		//				http.Error(w, err.Error(), http.StatusInternalServerError)
-		//				return
-		//			}
-		//		}
-		//	}
-		//}
+		deleted := 0
+		for k := range algInput.JobQueue {
+			j := k - deleted
+			if algInput.JobQueue[j].Created.Add(time.Duration(time.Millisecond * time.Duration(algInput.JobQueue[j].ExecutionTime))).Before(algStartTime) {
+				instances, err := simC[algInput.JobQueue[j].Tag].GetInstances()
+				if err != nil {
+					sim.Log.Print(err)
+					http.Error(w, err.Error(), http.StatusInternalServerError)
+					return
+				}
+				//Simulates the completion of a job by removing it from the job queue, removing an active resources for a job
+				//This is reflected in the real world by getting the instance information and see that there are no running jobs
+				instances[0].State = "INACTIVE"
+				log.Printf("Job: %+v finished on instance %+v", algInput.JobQueue[j], instances[0])
+				algInput.JobQueue = algInput.JobQueue[:j+copy(algInput.JobQueue[j:], algInput.JobQueue[j+1:])]
+				deleted++
+			}
+		}
+		sim.Log.Printf("%+v", out.Instances)
 		algInput.JobQueue = out.JobQueue
 	}
+	err = sim.endRun(simId)
+	if err != nil {
+		sim.Log.Print(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
+func (sim *Simulator) endRun(id string) error {
+	err := models.UpdateSim(sim.DB, id, time.Now())
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (sim *Simulator) indexHandle(w http.ResponseWriter, r *http.Request) {
@@ -240,4 +303,22 @@ func setScalingIds(clouds autoscale.CloudCollection, id string) {
 	for _, c := range clouds {
 		c.SetScalingId(id)
 	}
+}
+
+func (sim *Simulator) createClouds(inClusterStates autoscale.ClusterCollection) (autoscale.CloudCollection, error) {
+	simCloudMap := make(autoscale.CloudCollection)
+
+	simCloudMap[autoscale.CPouta] = &clouds.SimCloud{
+		Cluster: inClusterStates[autoscale.CPouta],
+		Db:      sim.DB,
+	}
+	simCloudMap[autoscale.AWS] = &clouds.SimCloud{
+		Cluster: inClusterStates[autoscale.AWS],
+		Db:      sim.DB,
+	}
+	simCloudMap[autoscale.Stallo] = &clouds.SimCloud{
+		Cluster: inClusterStates[autoscale.Stallo],
+		Db:      sim.DB,
+	}
+	return simCloudMap, nil
 }
