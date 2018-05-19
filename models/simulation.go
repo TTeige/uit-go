@@ -8,7 +8,7 @@ import (
 
 type Simulation struct {
 	SimulationStats
-	Events   []SimEvent
+	Events []SimEvent
 }
 
 type SimulationStats struct {
@@ -46,10 +46,11 @@ func GetSimEvents(db *sql.DB, sim_id string) ([]SimEvent, error) {
 
 	for rows.Next() {
 		var event SimEvent
-		err = rows.Scan(&event.Id, &event.SimId)
+		err = rows.Scan(&event.Id, &event.SimId, &event.Created, &event.Instance.Id, &event.Type, &event.InstanceType.Name, &event.InstanceType.PriceIncrement, &event.Instance.State)
 		if err != nil {
 			return nil, err
 		}
+		event.Instance.Type = event.InstanceType.Name
 		events = append(events, event)
 	}
 
@@ -71,6 +72,14 @@ func GetSimulation(db *sql.DB, sim_name string) (*Simulation, error) {
 	sim.Events = events
 
 	return sim, nil
+}
+
+func UpdateSim(db *sql.DB, sim string, finTime time.Time) error {
+	_, err := db.Exec("UPDATE simulation SET finished = $1 WHERE name = $2", finTime, sim)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func CreateSimulation(db *sql.DB, sim_name string, startTime time.Time) (string, error) {
