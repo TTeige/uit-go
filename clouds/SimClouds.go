@@ -15,12 +15,20 @@ type SimCloud struct {
 	Cluster autoscale.Cluster
 	// Needs a database handle to interact with the "external compute system". The database emulates the network
 	// connection
-	Db    *sql.DB
-	runId string
+	Db            *sql.DB
+	runId         string
+	lastIteration time.Time
+	beginTime     time.Time
 }
 
-func (c *SimCloud) SetScalingId(id string) {
+func (c *SimCloud) SetScalingId(id string) error {
 	c.runId = id
+	sim, err := models.GetSimulation(c.Db, id)
+	if err != nil {
+		return err
+	}
+	c.beginTime = sim.Started
+	return nil
 }
 
 func (c *SimCloud) Authenticate() error {
@@ -31,33 +39,8 @@ func (c *SimCloud) GetInstanceLimit() int {
 	return c.Cluster.Limit
 }
 
-//func (c *SimCloud) ProcessEvent(event autoscale.ScalingEvent, runId string) error {
-//	c.runId = runId
-//	if event.Type == "CREATED" {
-//		_, err := c.AddInstance(&event.Instance)
-//		if err != nil {
-//			return err
-//		}
-//	}
-//	if event.Type == "DELETED" {
-//		err := c.DeleteInstance(event.Instance.Id)
-//		if err != nil {
-//			return err
-//		}
-//	}
-//	//TODO: Implement propper reusage of instances.
-//	if event.Type == "REUSE" {
-//		_, err := c.AddInstance(&event.Instance)
-//		if err != nil {
-//			return err
-//		}
-//	}
-//	return nil
-//}
-
 func (c *SimCloud) AddInstance(instance *autoscale.Instance) (string, error) {
 	//available, err := c.GetInstances()
-	newInstanceName := ""
 	//if err != nil {
 	//	return newInstanceName, err
 	//}
@@ -86,27 +69,44 @@ func (c *SimCloud) AddInstance(instance *autoscale.Instance) (string, error) {
 	//		}
 	//	}
 	//}
-	instance.Id = ksuid.New().String()
+	eventType := "CREATED"
+	reusedIndex := -1
+	for i, inst := range c.Cluster.ActiveInstances {
+		if inst.State == "INACTIVE" && inst.Type == instance.Type {
+			instance.Id = inst.Id
+			eventType = "REUSED"
+			reusedIndex = i
+			break
+		}
+	}
 
+	if instance.Id == "" {
+		instance.Id = ksuid.New().String()
+	}
+	instance.State = "Active"
 	err := models.WriteSimEvent(c.Db, models.SimEvent{
-		SimId:      c.runId,
-		Created:    time.Now(),
-		InstanceId: instance.Id,
-		Type:       "CREATED",
+		SimId:        c.runId,
+		Created:      time.Now(),
+		Instance:     *instance,
+		InstanceType: c.Cluster.Types[instance.Type],
+		Type:         eventType,
 	})
 	if err != nil {
 		return "", err
 	}
 
-	newInstanceName = instance.Id
-	instance.State = "Active"
+	if eventType == "CREATED" {
+		c.Cluster.ActiveInstances = append(c.Cluster.ActiveInstances, *instance)
+	} else if eventType == "REUSED" {
+		c.Cluster.ActiveInstances[reusedIndex] = *instance
+	}
 
-	return newInstanceName, nil
+	return instance.Id, nil
 }
 
 func (c *SimCloud) DeleteInstance(id string) error {
 	// Simulates fetching the instances, needs to be done since it can have changed since the last time
-	instances, err := models.GetInstances(c.Db, c.Cluster.Name)
+	instances, err := c.GetInstances()
 	if err != nil {
 		return nil
 	}
@@ -114,10 +114,11 @@ func (c *SimCloud) DeleteInstance(id string) error {
 		if e.Id == id {
 			c.Cluster.ActiveInstances = append(instances[:i], instances[i+1:]...)
 			models.WriteSimEvent(c.Db, models.SimEvent{
-				SimId:      c.runId,
-				Created:    time.Now(),//Needs to be changed to support the time abstraction
-				InstanceId: e.Id,
-				Type:       "delete",
+				SimId:        c.runId,
+				Created:      time.Now(), //Needs to be changed to support the time abstraction
+				Instance:     e,
+				InstanceType: c.Cluster.Types[e.Type],
+				Type:         "delete",
 			})
 			break
 		}

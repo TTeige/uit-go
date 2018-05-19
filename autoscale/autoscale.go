@@ -56,6 +56,7 @@ type AlgorithmJob struct {
 	Priority      int
 	ExecutionTime int64
 	Deadline      time.Time
+	Created       time.Time
 }
 
 type InputFas struct {
@@ -108,7 +109,7 @@ type MetapipeJob struct {
 }
 
 type Algorithm interface {
-	Step(input AlgorithmInput, stepTime time.Time) (AlgorithmOutput, error)
+	Run(input AlgorithmInput, stepTime time.Time) (AlgorithmOutput, error)
 }
 
 type Estimator interface {
@@ -118,7 +119,7 @@ type Estimator interface {
 
 type Cloud interface {
 	Authenticate() error
-	SetScalingId(id string)
+	SetScalingId(id string) error
 	AddInstance(instance *Instance) (string, error)
 	DeleteInstance(id string) error
 	GetInstances() ([]Instance, error)
