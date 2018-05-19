@@ -12,7 +12,7 @@ import (
 	"github.com/tteige/uit-go/estimator"
 	"github.com/tteige/uit-go/autoscale"
 	"encoding/json"
-	"github.com/tteige/uit-go/clouds"
+	"database/sql"
 )
 
 func main() {
@@ -69,44 +69,40 @@ func main() {
 			ScaleUpThreshold:   10,
 			ScaleDownThreshold: 3,
 		}
-		simClusterMap := make(autoscale.ClusterCollection)
 
-		configLocation := os.Getenv("SIM_CLUSTER_CONFIG")
-		reader, err := os.Open(configLocation)
+		simClusterMap, err := loadClouds(db)
 		if err != nil {
 			log.Fatal(err)
 			return
 		}
 
-		dec := json.NewDecoder(reader)
-		err = dec.Decode(&simClusterMap)
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		simCloudMap := make(autoscale.CloudCollection)
-
-		simCloudMap[autoscale.CPouta] = &clouds.SimCloud{
-			Cluster: simClusterMap[autoscale.CPouta],
-			Db:      db,
-		}
-		simCloudMap[autoscale.AWS] = &clouds.SimCloud{
-			Cluster: simClusterMap[autoscale.AWS],
-			Db:      db,
-		}
-		simCloudMap[autoscale.Stallo] = &clouds.SimCloud{
-			Cluster: simClusterMap[autoscale.Stallo],
-			Db:      db,
-		}
-
 		sim := simulator.Simulator{
-			DB:        db,
-			Hostname:  serviceHostname,
-			Algorithm: alg,
-			Log:       log.New(os.Stdout, "SIMULATOR LOGGER: ", log.Lshortfile|log.LstdFlags),
-			Estimator: &est,
+			DB:          db,
+			Hostname:    serviceHostname,
+			Algorithm:   alg,
+			Log:         log.New(os.Stdout, "SIMULATOR LOGGER: ", log.Lshortfile|log.LstdFlags),
+			Estimator:   &est,
+			SimClusters: simClusterMap,
 		}
 		sim.Run()
 	}
 	return
+}
+
+func loadClouds(db *sql.DB) (autoscale.ClusterCollection, error) {
+	simClusterMap := make(autoscale.ClusterCollection)
+
+	configLocation := os.Getenv("SIM_CLUSTER_CONFIG")
+	reader, err := os.Open(configLocation)
+	if err != nil {
+		return nil, err
+	}
+
+	dec := json.NewDecoder(reader)
+	err = dec.Decode(&simClusterMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return simClusterMap, nil
 }
