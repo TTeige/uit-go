@@ -10,7 +10,7 @@
         parSibs[0].innerText = event.target.innerText;
 
         $.ajax({
-            url: "/simulation/?id=" + event.target.innerText + "/",
+            url: "/simulation/?id=" + event.target.innerText,
             success: function (data) {
                 data = JSON.parse(data);
                 for (let i = 0; i < data.length; i++) {
