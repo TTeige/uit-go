@@ -18,6 +18,7 @@ import (
 func main() {
 
 	service := flag.Bool("production", false, "run the auto scaling service")
+	updateDb := flag.Bool("updateDB", false, "update the database on launch")
 
 	conf := config.FullConfig{}
 	err := conf.LoadConfig()
@@ -45,12 +46,10 @@ func main() {
 		return
 	}
 	// TODO: Reinit database periodically, spawn a job that does this every day
-	if false {
-		err = models.InitDatabase(db, auth)
-		if err != nil {
-			log.Fatal(err)
-			return
-		}
+	err = models.InitDatabase(db, auth, *updateDb)
+	if err != nil {
+		log.Fatal(err)
+		return
 	}
 
 	est := estimator.LinearRegression{

@@ -79,16 +79,16 @@ func (rc *RetryClient) GetMetapipeJobSize(jobId string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	s, err := rc.fetchSize(mJob, rc.Auth.AccessToken)
+	s, err := rc.fetchSize(mJob.Inputs.InputFas.Url, rc.Auth.AccessToken)
 
 	return s, nil
 }
 
-func (rc *RetryClient) fetchSize(mJob MetapipeJob, authToken string) (int64, error) {
-	if mJob.Inputs.InputFas.Url == "" {
+func (rc *RetryClient) fetchSize(datasetUrl string, authToken string) (int64, error) {
+	if datasetUrl == "" {
 		return 0, nil
 	}
-	baseSizeRequest, err := http.NewRequest("HEAD", mJob.Inputs.InputFas.Url, bytes.NewBufferString(""))
+	baseSizeRequest, err := http.NewRequest("HEAD", datasetUrl, bytes.NewBufferString(""))
 	if err != nil {
 		return 0, err
 	}

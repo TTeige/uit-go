@@ -54,30 +54,12 @@ func insertJobAndParam(db *sql.DB, job Job, par Parameters) error {
 	return nil
 }
 
-func InitDatabase(db *sql.DB, auth autoscale.Oath2) error {
+func InitDatabase(db *sql.DB, auth autoscale.Oath2, fetchNewJobs bool) error {
 
-	//jobs, err := GetAllJobs(db)
-	//if err != nil && err != sql.ErrNoRows {
-	//	return err
-	//}
-	//
-	//if len(jobs) > 0 {
-	//	for _, j := range jobs {
-	//		if j.InputDataSize == 0 {
-	//			doUpdate, err := getJobInputSize(j, authToken)
-	//			if err != nil {
-	//				return err
-	//			}
-	//			if doUpdate {
-	//				err = UpdateJob(db, *j)
-	//				if err != nil {
-	//					return err
-	//				}
-	//			}
-	//		}
-	//	}
-	//	return nil
-	//}
+	jobs, err := GetAllJobs(db)
+	if err != nil && err != sql.ErrNoRows {
+		return err
+	}
 	client := autoscale.RetryClient{
 		Auth:        auth,
 		MaxAttempts: 3,
@@ -85,6 +67,26 @@ func InitDatabase(db *sql.DB, auth autoscale.Oath2) error {
 			Timeout: time.Second * 10,
 		},
 	}
+	for _, j := range jobs {
+		if j.InputDataSize == 0 {
+
+			size, err := client.GetMetapipeJobSize(j.JobId)
+			if err != nil {
+				return err
+			}
+			if size > 0 {
+				err = UpdateJob(db, *j)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	if !fetchNewJobs {
+		return nil
+	}
+
 	all, err := client.GetAllMetapipeJobs()
 	if err != nil {
 		return err
