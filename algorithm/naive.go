@@ -14,7 +14,6 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, stepTime time.Time) 
 	queueMap := make(map[string][]autoscale.AlgorithmJob)
 	var outInstances []autoscale.Instance
 	var out autoscale.AlgorithmOutput
-	//Split the input, if no tag is defined, default value is ""
 	for _, j := range input.JobQueue {
 		queueMap[j.Tag] = append(queueMap[j.Tag], j)
 	}
@@ -61,11 +60,9 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, stepTime time.Time) 
 				outInstances = append(outInstances, instance)
 			}
 		}
+		//DELETE instances based on the queue size, if the instance size is larger than queue,
+		//there should be at least one INACTIVE instance
 		if len(instances) > (len(queue)) {
-			instances, err := curClust.GetInstances()
-			if err != nil {
-				return autoscale.AlgorithmOutput{}, err
-			}
 			for _, i := range instances {
 				if i.State == "INACTIVE" {
 					err = curClust.DeleteInstance(i.Id)
