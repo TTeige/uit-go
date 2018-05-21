@@ -60,7 +60,7 @@
     ]
   },
   "metapipe": {
-    "name": "stallo",
+    "name": "metapipe",
     "limit": 8,
     "tag": "metapipe",
     "cost_limit": 785243875.0,
@@ -78,12 +78,12 @@
         "state": "ACTIVE"
       },
       {
-        "id": "metapipe_test_1",
+        "id": "metapipe_test_2",
         "type": "default",
         "state": "ACTIVE"
       },
       {
-        "id": "metapipe_test_1",
+        "id": "metapipe_test_3",
         "type": "default",
         "state": "ACTIVE"
       }

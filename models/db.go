@@ -56,6 +56,10 @@ func insertJobAndParam(db *sql.DB, job Job, par Parameters) error {
 
 func InitDatabase(db *sql.DB, auth autoscale.Oath2, fetchNewJobs bool) error {
 
+	if !fetchNewJobs {
+		return nil
+	}
+
 	jobs, err := GetAllJobs(db)
 	if err != nil && err != sql.ErrNoRows {
 		return err
@@ -81,10 +85,6 @@ func InitDatabase(db *sql.DB, auth autoscale.Oath2, fetchNewJobs bool) error {
 				}
 			}
 		}
-	}
-
-	if !fetchNewJobs {
-		return nil
 	}
 
 	all, err := client.GetAllMetapipeJobs()

@@ -126,9 +126,17 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 
 	jobs := []autoscale.AlgorithmJob{
 		{
-			Id:            "123abc",
-			Tag:           "aws",
-			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			Id:  "123abc",
+			Tag: "aws",
+			Parameters: autoscale.MetapipeParameter{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			},
 			State:         "RUNNING",
 			Priority:      2000,
 			Deadline:      time.Now().Add(time.Hour),
@@ -136,9 +144,17 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			ExecutionTime: 1301847471273,
 		},
 		{
-			Id:            "1213455abc",
-			Tag:           "aws",
-			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			Id:  "1213455abc",
+			Tag: "aws",
+			Parameters: autoscale.MetapipeParameter{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			},
 			State:         "QUEUED",
 			Priority:      2000,
 			Deadline:      time.Now().Add(time.Hour * 3),
@@ -146,9 +162,17 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			ExecutionTime: 13018471273,
 		},
 		{
-			Id:            "123aaaaaaabc",
-			Tag:           "aws",
-			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			Id:  "123aaaaaaabc",
+			Tag: "aws",
+			Parameters: autoscale.MetapipeParameter{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			},
 			State:         "QUEUED",
 			Priority:      2000,
 			Deadline:      time.Now().Add(time.Hour * 3),
@@ -156,9 +180,17 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			ExecutionTime: 1471273,
 		},
 		{
-			Id:            "a",
-			Tag:           "aws",
-			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			Id:  "a",
+			Tag: "aws",
+			Parameters: autoscale.MetapipeParameter{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			},
 			State:         "QUEUED",
 			Priority:      2000,
 			Deadline:      time.Now().Add(time.Hour * 2),
@@ -166,9 +198,17 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			ExecutionTime: 1471273,
 		},
 		{
-			Id:            "b",
-			Tag:           "aws",
-			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			Id:  "b",
+			Tag: "aws",
+			Parameters: autoscale.MetapipeParameter{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			},
 			State:         "QUEUED",
 			Priority:      2000,
 			Deadline:      time.Now().Add(time.Hour * 1),
@@ -176,9 +216,17 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			ExecutionTime: 1471273,
 		},
 		{
-			Id:            "c",
-			Tag:           "aws",
-			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			Id:  "c",
+			Tag: "aws",
+			Parameters: autoscale.MetapipeParameter{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			},
 			State:         "QUEUED",
 			Priority:      2000,
 			Deadline:      time.Now().Add(time.Hour * 1),
@@ -186,9 +234,17 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			ExecutionTime: 1471273,
 		},
 		{
-			Id:            "d",
-			Tag:           "aws",
-			Parameters:    []string{"removeNonCompleteGenes", "useBlastUniref50"},
+			Id:  "d",
+			Tag: "aws",
+			Parameters: autoscale.MetapipeParameter{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			},
 			State:         "QUEUED",
 			Priority:      2000,
 			Deadline:      time.Now().Add(time.Hour * 1),
@@ -197,7 +253,9 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 		},
 	}
 
-	err := r.ParseForm()
+	dec := json.NewDecoder(r.Body)
+	var reqInput autoscale.ScalingRequestInput
+	err := dec.Decode(&reqInput)
 	if err != nil {
 		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -205,69 +263,107 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var algInput autoscale.AlgorithmInput
-	simC, err := sim.createClouds(sim.SimClusters)
-	if err != nil {
-		sim.Log.Print(err)
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	var simC autoscale.CloudCollection
+	if reqInput.Clusters != nil {
+		simC, err = sim.createClouds(reqInput.Clusters)
+		if err != nil {
+			sim.Log.Print(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		simC, err = sim.createClouds(sim.SimClusters)
+		if err != nil {
+			sim.Log.Print(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
+
 	algInput.Clouds = simC
 
-	friendlyName := r.PostForm.Get("name")
+	friendlyName := reqInput.Name
+	if reqInput.Jobs != nil {
+		algInput.JobQueue, err = sim.Estimator.ProcessQueue(reqInput.Jobs)
+		if err != nil {
+			sim.Log.Print(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else {
+		algInput.JobQueue = jobs
+	}
 
 	if friendlyName == "" {
 		friendlyName = ksuid.New().String()
 	}
 
 	simId, err := models.CreateSimulation(sim.DB, friendlyName, time.Now())
-	setScalingIds(simC, simId)
 	if err != nil {
 		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	algStartTime := time.Now()
+	setScalingIds(simC, simId)
+	var algTimestamp time.Time
+	if reqInput.StartTime != "" {
+		algTimestamp, err = autoscale.ParseMetapipeTimestamp(reqInput.StartTime)
+	} else {
+		algTimestamp = time.Now()
+	}
 	for i := 0; i < 10; i++ {
 		if i > 0 {
 			//Simulates a 30 minute interval between each scaling attempt
-			algStartTime = algStartTime.Add(time.Minute*time.Duration(5))
+			algTimestamp = algTimestamp.Add(time.Minute * time.Duration(30))
 		}
 		var jInput []autoscale.AlgorithmJob
-		for _, j := range jobs {
-			if j.Created.Before(algStartTime) {
+		for _, j := range algInput.JobQueue {
+			if j.Created.Before(algTimestamp) {
 				jInput = append(jInput, j)
 			}
 		}
 		algInput.JobQueue = jInput
-		out, err := sim.Algorithm.Run(algInput, algStartTime)
+		out, err := sim.Algorithm.Run(algInput, algTimestamp)
 		if err != nil {
 			sim.Log.Print(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		deleted := 0
-		for k := range algInput.JobQueue {
-			j := k - deleted
-			if algInput.JobQueue[j].Created.Add(time.Duration(time.Millisecond * time.Duration(algInput.JobQueue[j].ExecutionTime))).Before(algStartTime) {
-				instances, err := simC[algInput.JobQueue[j].Tag].GetInstances()
-				if err != nil {
-					sim.Log.Print(err)
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
+		queueMap := make(map[string][]autoscale.AlgorithmJob)
+		for _, j := range out.JobQueue {
+			queueMap[j.Tag] = append(queueMap[j.Tag], j)
+		}
+
+		for key, queue := range queueMap {
+			instances, err := simC[key].GetInstances()
+			if err != nil {
+				sim.Log.Print(err)
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			deleted := 0
+			for k := range queue {
+				j := k - deleted
+				if deleted == len(instances) {
+					break
 				}
-				//Simulates the completion of a job by removing it from the job queue, removing an active resources for a job
-				//This is reflected in the real world by getting the instance information and see that there are no running jobs
-				instances[0].State = "INACTIVE"
-				log.Printf("Job: %+v finished on instance %+v", algInput.JobQueue[j], instances[0])
-				algInput.JobQueue = algInput.JobQueue[:j+copy(algInput.JobQueue[j:], algInput.JobQueue[j+1:])]
-				deleted++
+				if out.JobQueue[j].Created.Add(time.Duration(time.Millisecond * time.Duration(out.JobQueue[j].ExecutionTime))).Before(algTimestamp) {
+					if instances[deleted].State == "INACTIVE" {
+						continue
+					}
+					instances[deleted].State = "INACTIVE"
+					log.Printf("Job: %+v finished on instance %+v", algInput.JobQueue[j], instances[deleted])
+					algInput.JobQueue = out.JobQueue[:j+copy(out.JobQueue[j:], out.JobQueue[j+1:])]
+					deleted++
+				}
 			}
 		}
-		sim.Log.Printf("%+v", out.Instances)
 		algInput.JobQueue = out.JobQueue
+
+		sim.Log.Printf("%+v", out.Instances)
 	}
 	err = sim.endRun(simId)
+	sim.Log.Println("FINISHED SIMULATION")
 	if err != nil {
 		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)

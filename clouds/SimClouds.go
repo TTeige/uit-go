@@ -72,7 +72,7 @@ func (c *SimCloud) AddInstance(instance *autoscale.Instance) (string, error) {
 		InstanceType: c.Cluster.Types[instance.Type],
 		Type:         eventType,
 	})
-	instance.State = "Active"
+	instance.State = "ACTIVE"
 	if err != nil {
 		return "", err
 	}
@@ -99,7 +99,7 @@ func (c *SimCloud) DeleteInstance(id string) error {
 				Created:      time.Now(),
 				Instance:     e,
 				InstanceType: c.Cluster.Types[e.Type],
-				Type:         "delete",
+				Type:         "DELETED",
 			})
 			break
 		}

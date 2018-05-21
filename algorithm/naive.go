@@ -29,11 +29,12 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, stepTime time.Time) 
 			if job.State == "RUNNING" {
 				continue
 			}
+			instances, err := curClust.GetInstances()
+			if err != nil {
+				return out, err
+			}
 			if curClust.GetInstanceLimit() > len(instances) {
 				if len(instances) == len(queue) {
-					continue
-				}
-				if job.State != "QUEUED" {
 					continue
 				}
 				types, err := curClust.GetInstanceTypes()
@@ -58,6 +59,12 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, stepTime time.Time) 
 					return autoscale.AlgorithmOutput{}, err
 				}
 				outInstances = append(outInstances, instance)
+			} else {
+				for _, i := range instances {
+					if i.State == "INACTIVE" {
+						curClust.AddInstance(&i)
+					}
+				}
 			}
 		}
 		//DELETE instances based on the queue size, if the instance size is larger than queue,

@@ -53,7 +53,8 @@ func main() {
 	}
 
 	est := estimator.LinearRegression{
-		DB: db,
+		DB:   db,
+		Auth: auth,
 	}
 
 	if *service {

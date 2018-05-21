@@ -14,6 +14,13 @@ type Oath2 struct {
 	AccessToken string
 }
 
+type ScalingRequestInput struct {
+	Name      string            `json:"name"`
+	Clusters  ClusterCollection `json:"clusters"`
+	Jobs      []MetapipeJob     `json:"jobs"`
+	StartTime string            `json:"start_time"`
+}
+
 func (o *Oath2) GetSetAccessToken() (string, error) {
 	client := http.DefaultClient
 	body := bytes.NewBufferString("client_id=" + o.User + "&" + "client_secret=" + o.Password + "&" + "grant_type=client_credentials")
@@ -69,7 +76,6 @@ func (rc *RetryClient) retryGet(url string) (*http.Response, error) {
 
 func (rc *RetryClient) GetMetapipeJobSize(jobId string) (int64, error) {
 	resp, err := rc.retryGet("https://jobs.metapipe.uit.no/jobs/" + jobId)
-	defer resp.Body.Close()
 	if err != nil {
 		return 0, err
 	}
@@ -94,7 +100,6 @@ func (rc *RetryClient) fetchSize(datasetUrl string, authToken string) (int64, er
 	}
 	baseSizeRequest.Header.Add("Authorization", "Bearer "+authToken)
 	resp, err := rc.Client.Do(baseSizeRequest)
-	defer resp.Body.Close()
 	if err != nil {
 		if err == http.ErrHandlerTimeout {
 			return 0, nil

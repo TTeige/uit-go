@@ -2,6 +2,8 @@ package autoscale
 
 import (
 	"time"
+	"strings"
+	"strconv"
 )
 
 const (
@@ -53,7 +55,7 @@ type AlgorithmOutput struct {
 type AlgorithmJob struct {
 	Id            string
 	Tag           string
-	Parameters    []string
+	Parameters    MetapipeParameter
 	State         string
 	Priority      int
 	ExecutionTime int64
@@ -130,4 +132,29 @@ type Cloud interface {
 	GetInstances() ([]Instance, error)
 	GetInstanceTypes() (map[string]InstanceType, error)
 	GetInstanceLimit() int
+}
+
+func GetTag(tag string) (string) {
+	if strings.Contains(tag, AWS) {
+		return AWS
+	}
+	if strings.Contains(tag, CPouta) {
+		return CPouta
+	}
+	if strings.Contains(tag, Stallo) && !strings.Contains(tag, AWS) && ! strings.Contains(tag, CPouta) {
+		return Stallo
+	}
+	return "undefined"
+}
+
+func ParseMetapipeTimestamp(stamp string) (time.Time, error) {
+	t, err := strconv.ParseInt(stamp[:10], 10, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
+	n, err := strconv.ParseInt(stamp[11:], 10, 64)
+	if err != nil {
+		return time.Time{}, err
+	}
+	return time.Unix(t, n), nil
 }
