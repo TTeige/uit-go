@@ -2,8 +2,6 @@ package autoscale
 
 import (
 	"time"
-	"strings"
-	"strconv"
 )
 
 const (
@@ -14,6 +12,7 @@ const (
 
 type ClusterCollection map[string]Cluster
 type CloudCollection map[string]Cloud
+type JobParameters map[string]string
 
 type Instance struct {
 	Id    string `json:"id"`
@@ -55,70 +54,21 @@ type AlgorithmOutput struct {
 type AlgorithmJob struct {
 	Id            string
 	Tag           string
-	Parameters    MetapipeParameter
+	Parameters    JobParameters
 	State         string
 	Priority      int
-	ExecutionTime int64
+	ExecutionTime []int64
 	Deadline      time.Time
 	Created       time.Time
 }
 
-type InputFas struct {
-	Url string `json:"url"`
-}
-
-type dataUrl struct {
-	InputFas InputFas `json:"input.fas"`
-}
-
-type Attempt struct {
-	ExecutorId          string  `json:"executorId"`
-	State               string  `json:"state"`
-	AttemptId           string  `json:"attemptId"`
-	Tag                 string  `json:"tag"`
-	TimeCreated         string  `json:"timeCreated"`
-	TimeStarted         string  `json:"timeStarted"`
-	TimeEnded           string  `json:"timeEnded"`
-	LastHeartbeat       string  `json:"lastHeartbeat"`
-	RuntimeMillis       int     `json:"runtimeMillis"`
-	QueueDurationMillis int     `json:"queueDurationMillis"`
-	Outputs             dataUrl `json:"outputs"`
-	Priority            int     `json:"priority"`
-}
-
-type MetapipeParameter struct {
-	InputContigsCutoff     int  `json:"inputContigsCutoff"`
-	UseBlastUniref50       bool `json:"useBlastUniref50"`
-	UseInterproScan5       bool `json:"useInterproScan5"`
-	UsePriam               bool `json:"usePriam"`
-	RemoveNonCompleteGenes bool `json:"removeNonCompleteGenes"`
-	ExportMergedGenbank    bool `json:"exportMergedGenbank"`
-	UseBlastMarRef         bool `json:"useBlastMarRef"`
-}
-
-type MetapipeJob struct {
-	Id                       string            `json:"jobId"`
-	TimeSubmitted            string            `json:"timeSubmitted"`
-	State                    string            `json:"state"`
-	UserId                   string            `json:"userId"`
-	Tag                      string            `json:"tag"`
-	Priority                 int               `json:"priority"`
-	Hold                     bool              `json:"hold"`
-	Parameters               MetapipeParameter `json:"parameters"`
-	Inputs                   dataUrl           `json:"inputs"`
-	Outputs                  dataUrl           `json:"outputs"`
-	TotalRuntimeMillis       int64             `json:"totalRuntimeMillis"`
-	TotalQueueDurationMillis int64             `json:"totalQueueDurationMillis"`
-	Attempts                 []Attempt         `json:"attempts"`
-}
-
 type Algorithm interface {
-	Run(input AlgorithmInput, stepTime time.Time) (AlgorithmOutput, error)
+	Run(input AlgorithmInput, startTime time.Time) (AlgorithmOutput, error)
 }
 
 type Estimator interface {
 	Init() error
-	ProcessQueue(jobs []MetapipeJob) ([]AlgorithmJob, error)
+	ProcessQueue(jobs []AlgorithmJob) ([]AlgorithmJob, error)
 }
 
 type Cloud interface {
@@ -127,34 +77,9 @@ type Cloud interface {
 	GetCostLimit() float64
 	GetCurrentAvailableFunds() float64
 	GetExpectedJobCost(instanceType string, execTime int64) float64
-	AddInstance(instance *Instance) (string, error)
-	DeleteInstance(id string) error
+	AddInstance(instance *Instance, currentTime time.Time) (string, error)
+	DeleteInstance(id string, currentTime time.Time) error
 	GetInstances() ([]Instance, error)
 	GetInstanceTypes() (map[string]InstanceType, error)
 	GetInstanceLimit() int
-}
-
-func GetTag(tag string) (string) {
-	if strings.Contains(tag, AWS) {
-		return AWS
-	}
-	if strings.Contains(tag, CPouta) {
-		return CPouta
-	}
-	if strings.Contains(tag, Stallo) && !strings.Contains(tag, AWS) && ! strings.Contains(tag, CPouta) {
-		return Stallo
-	}
-	return "undefined"
-}
-
-func ParseMetapipeTimestamp(stamp string) (time.Time, error) {
-	t, err := strconv.ParseInt(stamp[:10], 10, 64)
-	if err != nil {
-		return time.Time{}, err
-	}
-	n, err := strconv.ParseInt(stamp[11:], 10, 64)
-	if err != nil {
-		return time.Time{}, err
-	}
-	return time.Unix(t, n), nil
 }

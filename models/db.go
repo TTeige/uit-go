@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"time"
 	"log"
-	"github.com/tteige/uit-go/autoscale"
+	"github.com/tteige/uit-go/metapipe"
 )
 
-func getTotalDuration(job autoscale.MetapipeJob) (int64, error) {
+func getTotalDuration(job metapipe.Job) (int64, error) {
 	var totalDuration int64
 
 	if job.TotalRuntimeMillis == 0 {
@@ -54,7 +54,7 @@ func insertJobAndParam(db *sql.DB, job Job, par Parameters) error {
 	return nil
 }
 
-func InitDatabase(db *sql.DB, auth autoscale.Oath2, fetchNewJobs bool) error {
+func InitDatabase(db *sql.DB, auth metapipe.Oath2, fetchNewJobs bool) error {
 
 	if !fetchNewJobs {
 		return nil
@@ -64,7 +64,7 @@ func InitDatabase(db *sql.DB, auth autoscale.Oath2, fetchNewJobs bool) error {
 	if err != nil && err != sql.ErrNoRows {
 		return err
 	}
-	client := autoscale.RetryClient{
+	client := metapipe.RetryClient{
 		Auth:        auth,
 		MaxAttempts: 3,
 		Client: http.Client{
@@ -111,8 +111,8 @@ func InitDatabase(db *sql.DB, auth autoscale.Oath2, fetchNewJobs bool) error {
 				QueueDuration: job.TotalQueueDurationMillis,
 			}
 			par := Parameters{
-				MetapipeParameter: job.Parameters,
-				JobId:             job.Id,
+				MP: job.Parameters,
+				JobId:      job.Id,
 			}
 
 			s, err := client.GetMetapipeJobSize(job.Id)

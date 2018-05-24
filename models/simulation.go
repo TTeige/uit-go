@@ -46,7 +46,7 @@ func GetSimEvents(db *sql.DB, sim_id string) ([]SimEvent, error) {
 
 	for rows.Next() {
 		var event SimEvent
-		err = rows.Scan(&event.Id, &event.SimId, &event.Created, &event.Instance.Id, &event.Type, &event.InstanceType.Name, &event.InstanceType.PriceIncrement, &event.Instance.State)
+		err = rows.Scan(&event.Id, &event.SimId, &event.Created, &event.Instance.Id, &event.Type, &event.InstanceType.Name, &event.InstanceType.PriceIncrement, &event.Instance.State, &event.CloudName)
 		if err != nil {
 			return nil, err
 		}

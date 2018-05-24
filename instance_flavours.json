@@ -1,0 +1,20 @@
+{
+  "csc": {
+    "default": {
+      "name": "default",
+      "price": 0.78
+    }
+  },
+  "metapipe": {
+    "default": {
+      "name": "default",
+      "price": 0.48
+    }
+  },
+  "aws": {
+    "x5-4xl": {
+      "name": "c5-4xl",
+      "price": 0.68
+    }
+  }
+}

@@ -2,11 +2,11 @@ package models
 
 import (
 	"database/sql"
-	"github.com/tteige/uit-go/autoscale"
+	"github.com/tteige/uit-go/metapipe"
 )
 
 type Parameters struct {
-	autoscale.MetapipeParameter
+	MP metapipe.Parameters
 	JobId string
 }
 
@@ -19,19 +19,19 @@ func InsertParameter(db *sql.DB, par Parameters) error {
 		ON CONFLICT (jobid)
 		DO NOTHING`
 
-	_, err := db.Exec(sqlStmt, par.InputContigsCutoff, par.UseBlastUniref50, par.UseBlastUniref50, par.UsePriam,
-		par.RemoveNonCompleteGenes, par.ExportMergedGenbank, par.UseBlastMarRef, par.JobId)
+	_, err := db.Exec(sqlStmt, par.MP.InputContigsCutoff, par.MP.UseBlastUniref50, par.MP.UseBlastUniref50, par.MP.UsePriam,
+		par.MP.RemoveNonCompleteGenes, par.MP.ExportMergedGenbank, par.MP.UseBlastMarRef, par.JobId)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func GetParameter(db *sql.DB, job string) (Parameters, error) {
+func GetParameters(db *sql.DB, job string) (Parameters, error) {
 	var par Parameters
-	err := db.QueryRow("SELECT * FROM parameters WHERE jobid = $1", job).Scan(&par.InputContigsCutoff,
-		&par.UseBlastUniref50, &par.UseInterproScan5, &par.UsePriam, &par.RemoveNonCompleteGenes, &par.ExportMergedGenbank,
-		&par.UseBlastMarRef, &par.JobId)
+	err := db.QueryRow("SELECT * FROM parameters WHERE jobid = $1", job).Scan(&par.MP.InputContigsCutoff,
+		&par.MP.UseBlastUniref50, &par.MP.UseInterproScan5, &par.MP.UsePriam, &par.MP.RemoveNonCompleteGenes, &par.MP.ExportMergedGenbank,
+		&par.MP.UseBlastMarRef, &par.JobId)
 	if err != nil {
 		return Parameters{}, nil
 	}

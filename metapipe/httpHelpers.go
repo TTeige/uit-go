@@ -1,4 +1,4 @@
-package autoscale
+package metapipe
 
 import (
 	"bytes"
@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"encoding/json"
 	"log"
+	"github.com/tteige/uit-go/autoscale"
 )
 
 type Oath2 struct {
@@ -16,8 +17,8 @@ type Oath2 struct {
 
 type ScalingRequestInput struct {
 	Name      string            `json:"name"`
-	Clusters  ClusterCollection `json:"clusters"`
-	Jobs      []MetapipeJob     `json:"jobs"`
+	Clusters  autoscale.ClusterCollection `json:"clusters"`
+	Jobs      []Job    `json:"jobs"`
 	StartTime string            `json:"start_time"`
 }
 
@@ -79,7 +80,7 @@ func (rc *RetryClient) GetMetapipeJobSize(jobId string) (int64, error) {
 	if err != nil {
 		return 0, err
 	}
-	var mJob MetapipeJob
+	var mJob Job
 	dec := json.NewDecoder(resp.Body)
 	err = dec.Decode(&mJob)
 	if err != nil {
@@ -112,7 +113,7 @@ func (rc *RetryClient) fetchSize(datasetUrl string, authToken string) (int64, er
 	return resp.ContentLength, nil
 }
 
-func (rc *RetryClient) GetAllMetapipeJobs() ([]MetapipeJob, error) {
+func (rc *RetryClient) GetAllMetapipeJobs() ([]Job, error) {
 	log.Printf("Downloading metapipe dataset")
 	resp, err := rc.retryGet("https://jobs.metapipe.uit.no/jobs")
 	defer resp.Body.Close()
@@ -121,7 +122,7 @@ func (rc *RetryClient) GetAllMetapipeJobs() ([]MetapipeJob, error) {
 	}
 	log.Printf("Done downloading dataset")
 
-	var all []MetapipeJob
+	var all []Job
 	dec := json.NewDecoder(resp.Body)
 	err = dec.Decode(&all)
 	if err != nil {

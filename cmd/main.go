@@ -9,10 +9,10 @@ import (
 	"github.com/tteige/uit-go/algorithm"
 	"os"
 	"github.com/tteige/uit-go/config"
-	"github.com/tteige/uit-go/estimator"
 	"github.com/tteige/uit-go/autoscale"
 	"encoding/json"
-	"database/sql"
+	"github.com/tteige/uit-go/metapipe"
+	"github.com/tteige/uit-go/estimator"
 )
 
 func main() {
@@ -34,7 +34,7 @@ func main() {
 		return
 	}
 
-	auth := autoscale.Oath2{
+	auth := metapipe.Oath2{
 		User:     conf.OAuthConf.Username,
 		Password: conf.OAuthConf.ClientSecret,
 	}
@@ -53,8 +53,8 @@ func main() {
 	}
 
 	est := estimator.LinearRegression{
-		DB:   db,
 		Auth: auth,
+		DB:   db,
 	}
 
 	if *service {
@@ -65,12 +65,9 @@ func main() {
 		}
 		s.Run()
 	} else {
-		alg := algorithm.NaiveAlgorithm{
-			ScaleUpThreshold:   10,
-			ScaleDownThreshold: 3,
-		}
+		alg := algorithm.NaiveAlgorithm{}
 
-		simClusterMap, err := loadClouds(db)
+		simClusterMap, err := loadClouds()
 		if err != nil {
 			log.Fatal(err)
 			return
@@ -89,7 +86,7 @@ func main() {
 	return
 }
 
-func loadClouds(db *sql.DB) (autoscale.ClusterCollection, error) {
+func loadClouds() (autoscale.ClusterCollection, error) {
 	simClusterMap := make(autoscale.ClusterCollection)
 
 	configLocation := os.Getenv("SIM_CLUSTER_CONFIG")
@@ -102,6 +99,29 @@ func loadClouds(db *sql.DB) (autoscale.ClusterCollection, error) {
 	err = dec.Decode(&simClusterMap)
 	if err != nil {
 		return nil, err
+	}
+
+	configLocation = os.Getenv("SIM_INSTANCE_FLAVOURS_CONFIG")
+	if configLocation == "" {
+		return simClusterMap, nil
+	}
+	reader, err = os.Open(configLocation)
+	if err != nil {
+		return nil, err
+	}
+
+	flavours := make(map[string]map[string]autoscale.InstanceType)
+
+	dec = json.NewDecoder(reader)
+	err = dec.Decode(&flavours)
+	if err != nil {
+		return nil, err
+	}
+
+	for k, v := range flavours {
+		c := simClusterMap[k]
+		c.Types = v
+		simClusterMap[k] = c
 	}
 
 	return simClusterMap, nil

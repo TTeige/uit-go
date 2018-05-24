@@ -20,12 +20,12 @@
       {
         "id": "test_aws_2",
         "type": "c5-4xl",
-        "state": "ACTIVE"
+        "state": "INACTIVE"
       },
       {
         "id": "test_aws_3",
         "type": "c5-4xl",
-        "state": "ACTIVE"
+        "state": "INACTIVE"
       }
     ]
   },
@@ -45,17 +45,12 @@
       {
         "id": "test_csc_1",
         "type": "default",
-        "state": "ACTIVE"
+        "state": "INACTIVE"
       },
       {
         "id": "test_csc_2",
         "type": "default",
-        "state": "ACTIVE"
-      },
-      {
-        "id": "test_csc_3",
-        "type": "default",
-        "state": "ACTIVE"
+        "state": "INACTIVE"
       }
     ]
   },
@@ -75,17 +70,7 @@
       {
         "id": "metapipe_test_1",
         "type": "default",
-        "state": "ACTIVE"
-      },
-      {
-        "id": "metapipe_test_2",
-        "type": "default",
-        "state": "ACTIVE"
-      },
-      {
-        "id": "metapipe_test_3",
-        "type": "default",
-        "state": "ACTIVE"
+        "state": "INACTIVE"
       }
     ]
   }

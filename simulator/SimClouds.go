@@ -1,4 +1,4 @@
-package clouds
+package simulator
 
 import (
 	"github.com/tteige/uit-go/autoscale"
@@ -47,15 +47,14 @@ func (c *SimCloud) GetInstanceLimit() int {
 	return c.Cluster.Limit
 }
 
-func (c *SimCloud) AddInstance(instance *autoscale.Instance) (string, error) {
+func (c *SimCloud) AddInstance(instance *autoscale.Instance, currentTime time.Time) (string, error) {
 
 	eventType := "CREATED"
-	instance.State = "STARTING"
+	instance.State = "ACTIVE"
 	reusedIndex := -1
 	for i, inst := range c.Cluster.ActiveInstances {
 		if inst.State == "INACTIVE" && inst.Type == instance.Type {
 			instance.Id = inst.Id
-			instance.State = inst.State
 			eventType = "REUSED"
 			reusedIndex = i
 			break
@@ -63,16 +62,16 @@ func (c *SimCloud) AddInstance(instance *autoscale.Instance) (string, error) {
 	}
 
 	if instance.Id == "" {
-		instance.Id = ksuid.New().String()
+		instance.Id = c.Cluster.Name + "_" + ksuid.New().String()
 	}
 	err := models.WriteSimEvent(c.Db, models.SimEvent{
 		SimId:        c.runId,
-		Created:      time.Now(),
+		Created:      currentTime,
 		Instance:     *instance,
 		InstanceType: c.Cluster.Types[instance.Type],
 		Type:         eventType,
+		CloudName:    c.Cluster.Name,
 	})
-	instance.State = "ACTIVE"
 	if err != nil {
 		return "", err
 	}
@@ -86,7 +85,7 @@ func (c *SimCloud) AddInstance(instance *autoscale.Instance) (string, error) {
 	return instance.Id, nil
 }
 
-func (c *SimCloud) DeleteInstance(id string) error {
+func (c *SimCloud) DeleteInstance(id string, currentTime time.Time) error {
 	instances, err := c.GetInstances()
 	if err != nil {
 		return nil
@@ -96,10 +95,11 @@ func (c *SimCloud) DeleteInstance(id string) error {
 			c.Cluster.ActiveInstances = append(instances[:i], instances[i+1:]...)
 			models.WriteSimEvent(c.Db, models.SimEvent{
 				SimId:        c.runId,
-				Created:      time.Now(),
+				Created:      currentTime,
 				Instance:     e,
 				InstanceType: c.Cluster.Types[e.Type],
 				Type:         "DELETED",
+				CloudName:    c.Cluster.Name,
 			})
 			break
 		}

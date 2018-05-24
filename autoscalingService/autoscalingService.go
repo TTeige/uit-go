@@ -3,28 +3,16 @@ package autoscalingService
 import (
 	"github.com/gorilla/mux"
 	"net/http"
-	"github.com/tteige/uit-go/models"
 	"database/sql"
-	"log"
-	"fmt"
 )
 
 type Service struct {
-	DB *sql.DB
+	DB       *sql.DB
 	Hostname string
 }
 
 func (s *Service) indexHandle(w http.ResponseWriter, r *http.Request) {
 	// Create serving for the overview of the algorithms that have been input to the scaling server
-	jobs, err := models.GetAllJobs(s.DB)
-	if err != nil {
-		log.Println(err)
-		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
-		return
-	}
-	for _, job := range jobs {
-		w.Write([]byte(fmt.Sprintf("%s, %d, %#v", job.JobId, job.Runtime, job.Tag)))
-	}
 }
 
 func (s *Service) runScalingHandle(w http.ResponseWriter, r *http.Request) {
