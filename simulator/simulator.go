@@ -13,9 +13,11 @@ import (
 	"encoding/json"
 	"net/url"
 	"io"
-	"sort"
 	"github.com/tteige/uit-go/metapipe"
+	"sort"
 )
+
+type simulationOutput map[int]map[string][]autoscale.AlgorithmJob
 
 type Simulator struct {
 	DB          *sql.DB
@@ -44,10 +46,9 @@ func (sim *Simulator) Run() {
 func (sim *Simulator) serveSim() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", sim.indexHandle).Methods("GET")
-	r.HandleFunc("/simulate/", sim.simulationHandle).Methods("POST")
-	r.HandleFunc("/simulate/instancetype/", sim.simulationHandle).Methods("POST")
-	r.HandleFunc("/simulation/", sim.getPreviousScalingHandle).Methods("GET")
-	r.HandleFunc("/simulation/all", sim.getAllSimulations).Methods("GET")
+	r.HandleFunc("/metapipe/simulate/", sim.metapipeSimulationHandle).Methods("POST")
+	r.HandleFunc("/metapipe/simulation/", sim.getPreviousScalingHandle).Methods("GET")
+	r.HandleFunc("/metapipe/simulation/all", sim.getAllSimulations).Methods("GET")
 	http.ListenAndServe(sim.Hostname, r)
 }
 
@@ -75,7 +76,7 @@ func (sim *Simulator) getPreviousScalingHandle(w http.ResponseWriter, r *http.Re
 	var simList [][]models.SimEvent
 	q := raw.Query()
 	if val, ok := q["id"]; ok {
-		sim.Log.Printf("GetAllSimulationsRequest: /simulation/?id=%s", q["id"])
+		sim.Log.Printf("GetAllSimulationsRequest: /metapipe/simulation/?id=%s", q["id"])
 		for _, i := range val {
 			events, err := models.GetSimEvents(sim.DB, i)
 			if err != nil && err != sql.ErrNoRows {
@@ -91,13 +92,8 @@ func (sim *Simulator) getPreviousScalingHandle(w http.ResponseWriter, r *http.Re
 	w.Write(b)
 }
 
-func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
-	var out autoscale.AlgorithmOutput
-	sim.Log.Print("SimulationRequest: /simulate/")
-
-	simId, algInput, completeQueue, algTimestamp, err := sim.handleMetapipe(r)
-	jsonSimQueue := make(map[int]map[string][]autoscale.AlgorithmJob)
-
+func (sim *Simulator) simulate(simId string, completeQueue []autoscale.AlgorithmJob, algInput autoscale.AlgorithmInput, algTimestamp time.Time) (simulationOutput, error) {
+	jsonSimQueue := make(simulationOutput)
 	sim.Log.Printf("Starting simulation: %s", simId)
 
 	for i := 0; i < 96; i++ {
@@ -106,6 +102,7 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 			algTimestamp = algTimestamp.Add(time.Minute * time.Duration(30))
 		}
 
+		//Selects jobs that are created before the timestamp
 		deleted := 0
 		for k := range completeQueue {
 			j := k - deleted
@@ -115,12 +112,13 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 				deleted++
 			}
 		}
-		out, err = sim.Algorithm.Run(algInput, algTimestamp)
+		//Run the algorithm
+		out, err := sim.Algorithm.Run(algInput, algTimestamp)
 		if err != nil {
-			sim.Log.Print(err)
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
+			return nil, err
 		}
+
+		//Split the output to queues defined by tag
 		queueMap := make(map[string][]autoscale.AlgorithmJob)
 		for _, j := range out.JobQueue {
 			queueMap[j.Tag] = append(queueMap[j.Tag], j)
@@ -129,13 +127,13 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 
 		newInputQueue := make([]autoscale.AlgorithmJob, 0)
 
+		//Iterate the queues in the map
 		for key, queue := range queueMap {
 			instances, err := algInput.Clouds[key].GetInstances()
 			if err != nil {
-				sim.Log.Print(err)
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
+				return nil, err
 			}
+
 			instancesActive := 0
 			for _, i := range instances {
 				if i.State == "ACTIVE" {
@@ -148,32 +146,38 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 					runningJobs++
 				}
 			}
-			sort.Slice(queue, func(i, j int) bool {
-				return queue[i].Priority > queue[j].Priority
-			})
 
+			//Iterate the queue
 			deleted := 0
 			for k := range queue {
 				j := k - deleted
+				//Simulate the job manager launching the job on the correct cluster
 				if instancesActive > runningJobs {
 					if queue[j].State != "RUNNING" {
 						queue[j].State = "RUNNING"
-						deadline := queue[j].Deadline.Sub(queue[j].Created)
-						queue[j].Created = algTimestamp
-						queue[j].Deadline.Add(deadline)
+						runningJobs++
+						queue[j].Started = algTimestamp
 					}
 				}
 
-				if deleted == len(instances) {
-					break
-				}
-				t := queue[j].Created.Add(time.Duration(time.Millisecond * time.Duration(queue[j].ExecutionTime[0])))
+				//if deleted == len(instances) {
+				//	break
+				//}
+				//Simulates a job finishing
+				t := queue[j].Started.Add(time.Duration(time.Millisecond * time.Duration(queue[j].ExecutionTime[0])))
 				if t.Before(algTimestamp) && queue[j].State == "RUNNING" {
 					queue[j].State = "FINISHED"
-					sim.Log.Printf("Job: %+v finished on instance %+v %s", queue[j], instances[deleted], key)
-					queue = queue[:j+copy(queue[j:], queue[j+1:])]
-					instances[deleted].State = "INACTIVE"
-					deleted++
+					instanceIndex := sort.Search(len(instances), func(i int) bool {
+						return instances[i].State == "ACTIVE"
+					})
+					if instanceIndex < len(instances) && instances[instanceIndex].State == "ACTIVE" {
+						instances[instanceIndex].State = "INACTIVE"
+						sim.Log.Printf("Job: %+v finished on instance %+v %s", queue[j], instances[instanceIndex], key)
+						queue = queue[:j+copy(queue[j:], queue[j+1:])]
+						deleted++
+					} else {
+						sim.Log.Println("Something went wrong with the simulation of job state transition. No active instances found")
+					}
 				}
 			}
 
@@ -187,7 +191,19 @@ func (sim *Simulator) simulationHandle(w http.ResponseWriter, r *http.Request) {
 		algInput.JobQueue = newInputQueue
 		sim.Log.Printf("%+v", out.Instances)
 	}
-	err = sim.endRun(simId)
+	err := sim.endRun(simId)
+	if err != nil {
+		return nil, err
+	}
+	return jsonSimQueue, nil
+}
+
+func (sim *Simulator) metapipeSimulationHandle(w http.ResponseWriter, r *http.Request) {
+	sim.Log.Print("SimulationRequest: /metapipe/simulate/")
+
+	simId, algInput, completeQueue, algTimestamp, err := sim.handleMetapipe(r)
+	jsonSimQueue, err := sim.simulate(simId, completeQueue, algInput, algTimestamp)
+
 	sim.Log.Println("FINISHED SIMULATION")
 	if err != nil {
 		sim.Log.Print(err)
@@ -251,7 +267,7 @@ func (sim *Simulator) handleMetapipe(r *http.Request) (string, autoscale.Algorit
 	utcNorway := int((time.Hour).Seconds())
 	nor := time.FixedZone("Norway", utcNorway)
 	defaultTime := time.Date(2018, 5, 23, 20, 40, 23, 0, nor)
-	jobs := getMetapipeJobs(defaultTime.Add(time.Duration(time.Minute * -5)))
+	jobs := metapipe.GetMetapipeJobs(defaultTime.Add(time.Duration(time.Minute * -5)))
 	var algInput autoscale.AlgorithmInput
 	var simC autoscale.CloudCollection
 	var reqInput metapipe.ScalingRequestInput
@@ -304,261 +320,4 @@ func (sim *Simulator) handleMetapipe(r *http.Request) (string, autoscale.Algorit
 		algTimestamp = defaultTime
 	}
 	return simId, algInput, completeQueue, algTimestamp, nil
-}
-
-func getMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
-	return []autoscale.AlgorithmJob{
-		{
-			Id:  "1",
-			Tag: "aws",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "RUNNING",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour),
-			Created:       defaultTime.Add(-time.Hour),
-			ExecutionTime: []int64{91847471},
-		},
-		{
-			Id:  "2",
-			Tag: "aws",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour * 3),
-			Created:       defaultTime.Add(-time.Hour),
-			ExecutionTime: []int64{130184712},
-		},
-		{
-			Id:  "3",
-			Tag: "aws",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour * 3),
-			Created:       defaultTime.Add(time.Hour),
-			ExecutionTime: []int64{14712732},
-		},
-		{
-			Id:  "a",
-			Tag: "aws",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour * 2),
-			Created:       defaultTime.Add(time.Hour),
-			ExecutionTime: []int64{24712734},
-		},
-		{
-			Id:  "b",
-			Tag: "aws",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour * 1),
-			Created:       defaultTime.Add(time.Minute * 30),
-			ExecutionTime: []int64{2347127},
-		},
-		{
-			Id:  "c",
-			Tag: "aws",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour * 1),
-			Created:       defaultTime.Add(time.Minute * 30),
-			ExecutionTime: []int64{6647127},
-		},
-		{
-			Id:  "d",
-			Tag: "aws",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour * 1),
-			Created:       defaultTime.Add(time.Minute * 30),
-			ExecutionTime: []int64{6647127},
-		},
-		{
-			Id:  "e",
-			Tag: "csc",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour * 1),
-			Created:       defaultTime,
-			ExecutionTime: []int64{6647127},
-		},
-		{
-			Id:  "f",
-			Tag: "csc",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour * 1),
-			Created:       defaultTime,
-			ExecutionTime: []int64{6647127},
-		},
-		{
-			Id:  "g",
-			Tag: "csc",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour * 1),
-			Created:       defaultTime,
-			ExecutionTime: []int64{3547127},
-		},
-		{
-			Id:  "h",
-			Tag: "metapipe",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      2000,
-			Deadline:      defaultTime.Add(time.Hour * 1),
-			Created:       defaultTime,
-			ExecutionTime: []int64{3547127},
-		},
-		{
-			Id:  "i",
-			Tag: "metapipe",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      1,
-			Deadline:      defaultTime.Add(time.Hour * 1),
-			Created:       defaultTime,
-			ExecutionTime: []int64{21347127},
-		},
-		{
-			Id:  "j",
-			Tag: "metapipe",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      1,
-			Deadline:      defaultTime.Add(time.Hour * 3),
-			Created:       defaultTime.Add(time.Hour * 2),
-			ExecutionTime: []int64{45347127},
-		},
-		{
-			Id:  "k",
-			Tag: "metapipe",
-			Parameters: metapipe.ConvertFromMetapipeParameters(metapipe.Parameters{
-				InputContigsCutoff:     500,
-				UseBlastUniref50:       true,
-				UseInterproScan5:       false,
-				UsePriam:               false,
-				RemoveNonCompleteGenes: true,
-				ExportMergedGenbank:    false,
-				UseBlastMarRef:         false,
-			}),
-			State:         "QUEUED",
-			Priority:      1,
-			Deadline:      defaultTime.Add(time.Hour * 2),
-			Created:       defaultTime.Add(time.Hour * 1),
-			ExecutionTime: []int64{34712713},
-		},
-	}
 }
