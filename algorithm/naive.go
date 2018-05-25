@@ -11,6 +11,7 @@ type NaiveAlgorithm struct {
 }
 
 func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time) (autoscale.AlgorithmOutput, error) {
+	//TODO: Fix output queue, it is not in order, can be simulator which breaks it.
 	queueMap := make(map[string][]autoscale.AlgorithmJob)
 	var outInstances []autoscale.Instance
 	var out autoscale.AlgorithmOutput
