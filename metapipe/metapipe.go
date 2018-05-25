@@ -7,6 +7,12 @@ import (
 	"strings"
 )
 
+const (
+	AWS    = "aws"
+	Stallo = "metapipe"
+	CPouta = "csc"
+)
+
 type InputFas struct {
 	Url string `json:"url"`
 }
@@ -139,7 +145,7 @@ func ConvertMetapipeQueueToAlgInputJobs(jobs []Job) ([]autoscale.AlgorithmJob, e
 			Parameters:    ConvertFromMetapipeParameters(j.Parameters),
 			State:         j.State,
 			Priority:      j.Priority,
-			ExecutionTime: []int64{0},
+			ExecutionTime: map[string]int64{j.Tag:0},
 			Deadline:      time.Time{},
 			Created:       t,
 			Started:       start,
@@ -150,14 +156,14 @@ func ConvertMetapipeQueueToAlgInputJobs(jobs []Job) ([]autoscale.AlgorithmJob, e
 }
 
 func GetTag(tag string) (string) {
-	if strings.Contains(tag, autoscale.AWS) {
-		return autoscale.AWS
+	if strings.Contains(tag, AWS) {
+		return AWS
 	}
-	if strings.Contains(tag, autoscale.CPouta) {
-		return autoscale.CPouta
+	if strings.Contains(tag, CPouta) {
+		return CPouta
 	}
-	if strings.Contains(tag, autoscale.Stallo) && !strings.Contains(tag, autoscale.AWS) && ! strings.Contains(tag, autoscale.CPouta) {
-		return autoscale.Stallo
+	if strings.Contains(tag, Stallo) && !strings.Contains(tag, AWS) && ! strings.Contains(tag, CPouta) {
+		return Stallo
 	}
 	if tag == "" {
 		return ""
@@ -184,7 +190,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			Deadline:      defaultTime.Add(time.Hour),
 			Created:       defaultTime.Add(-time.Hour),
 			Started:       defaultTime.Add(-time.Hour + time.Duration(time.Minute*5)),
-			ExecutionTime: []int64{91847471},
+			ExecutionTime: map[string]int64{"aws": 91847471},
 		},
 		{
 			Id:  "2",
@@ -200,7 +206,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      2000,
-			ExecutionTime: []int64{130184712},
+			ExecutionTime: map[string]int64{"aws": 130184712},
 			Deadline:      defaultTime.Add(time.Hour * 3),
 			Created:       defaultTime.Add(-time.Hour),
 			Started:       time.Time{},
@@ -219,7 +225,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      2000,
-			ExecutionTime: []int64{14712732},
+			ExecutionTime: map[string]int64{"aws": 14712732},
 			Deadline:      defaultTime.Add(time.Hour * 3),
 			Created:       defaultTime.Add(time.Hour),
 			Started:       time.Time{},
@@ -238,7 +244,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      2000,
-			ExecutionTime: []int64{24712734},
+			ExecutionTime: map[string]int64{"aws": 24712734},
 			Deadline:      defaultTime.Add(time.Hour * 2),
 			Created:       defaultTime.Add(time.Hour),
 			Started:       time.Time{},
@@ -257,7 +263,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      2000,
-			ExecutionTime: []int64{2347127},
+			ExecutionTime: map[string]int64{"aws": 2347127},
 			Deadline:      defaultTime.Add(time.Hour * 1),
 			Created:       defaultTime.Add(time.Minute * 30),
 			Started:       time.Time{},
@@ -276,7 +282,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      2000,
-			ExecutionTime: []int64{6647127},
+			ExecutionTime: map[string]int64{"aws": 6647127},
 			Deadline:      defaultTime.Add(time.Hour * 1),
 			Created:       defaultTime.Add(time.Minute * 30),
 			Started:       time.Time{},
@@ -295,7 +301,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      2000,
-			ExecutionTime: []int64{6647127},
+			ExecutionTime: map[string]int64{"aws": 6647127},
 			Deadline:      defaultTime.Add(time.Hour * 1),
 			Created:       defaultTime.Add(time.Minute * 30),
 			Started:       time.Time{},
@@ -314,7 +320,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      2000,
-			ExecutionTime: []int64{6647127},
+			ExecutionTime: map[string]int64{"csc": 6647127},
 			Deadline:      defaultTime.Add(time.Hour * 1),
 			Created:       defaultTime,
 			Started:       time.Time{},
@@ -333,7 +339,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      2000,
-			ExecutionTime: []int64{6647127},
+			ExecutionTime: map[string]int64{"csc": 6647127},
 			Deadline:      defaultTime.Add(time.Hour * 1),
 			Created:       defaultTime,
 			Started:       time.Time{},
@@ -352,7 +358,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      2000,
-			ExecutionTime: []int64{3547127},
+			ExecutionTime: map[string]int64{"csc": 3547127},
 			Deadline:      defaultTime.Add(time.Hour * 1),
 			Created:       defaultTime,
 			Started:       time.Time{},
@@ -371,7 +377,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      2000,
-			ExecutionTime: []int64{3547127},
+			ExecutionTime: map[string]int64{"metapipe": 3547127},
 			Deadline:      defaultTime.Add(time.Hour * 1),
 			Created:       defaultTime,
 			Started:       time.Time{},
@@ -390,7 +396,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      1,
-			ExecutionTime: []int64{21347127},
+			ExecutionTime: map[string]int64{"metapipe": 21347127},
 			Deadline:      defaultTime.Add(time.Hour * 1),
 			Created:       defaultTime,
 			Started:       time.Time{},
@@ -409,7 +415,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      1,
-			ExecutionTime: []int64{45347127},
+			ExecutionTime: map[string]int64{"metapipe": 45347127},
 			Deadline:      defaultTime.Add(time.Hour * 3),
 			Created:       defaultTime.Add(time.Hour * 2),
 			Started:       time.Time{},
@@ -428,7 +434,7 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			}),
 			State:         "QUEUED",
 			Priority:      1,
-			ExecutionTime: []int64{34712713},
+			ExecutionTime: map[string]int64{"metapipe": 34712713},
 			Deadline:      defaultTime.Add(time.Hour * 2),
 			Created:       defaultTime.Add(time.Hour * 1),
 			Started:       time.Time{},

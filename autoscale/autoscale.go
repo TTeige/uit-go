@@ -4,12 +4,6 @@ import (
 	"time"
 )
 
-const (
-	AWS    = "aws"
-	Stallo = "metapipe"
-	CPouta = "csc"
-)
-
 type ClusterCollection map[string]Cluster
 type CloudCollection map[string]Cloud
 type JobParameters map[string]string
@@ -57,7 +51,7 @@ type AlgorithmJob struct {
 	Parameters    JobParameters
 	State         string
 	Priority      int
-	ExecutionTime []int64
+	ExecutionTime map[string]int64
 	Deadline      time.Time
 	Created       time.Time
 	Started       time.Time

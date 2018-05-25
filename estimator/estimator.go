@@ -134,13 +134,32 @@ func (lr *LinearRegression) ProcessQueue(jobs []autoscale.AlgorithmJob) ([]autos
 			continue
 		}
 
+
 		dataSize, err := client.GetMetapipeJobSize(j.Id)
 		if err != nil {
 			return nil, err
 		}
-		execTime, err := lr.estimateJob(metapipe.ConvertToMetapipeParamaters(j.Parameters), j.Tag, dataSize)
-		if err != nil {
-			return nil, err
+		execMap := make(map[string]int64)
+		var execTime int64
+		if newTag == "" {
+			execTime, err = lr.estimateJob(metapipe.ConvertToMetapipeParamaters(j.Parameters), metapipe.AWS, dataSize)
+			if err != nil {
+				return nil, err
+			}
+			execMap[metapipe.AWS] = execTime
+			execTime, err = lr.estimateJob(metapipe.ConvertToMetapipeParamaters(j.Parameters), metapipe.CPouta, dataSize)
+			if err != nil {
+				return nil, err
+			}
+			execMap[metapipe.CPouta] = execTime
+			execTime, err = lr.estimateJob(metapipe.ConvertToMetapipeParamaters(j.Parameters), metapipe.Stallo, dataSize)
+			if err != nil {
+				return nil, err
+			}
+			execMap[metapipe.Stallo] = execTime
+		} else {
+			execTime, err = lr.estimateJob(metapipe.ConvertToMetapipeParamaters(j.Parameters), j.Tag, dataSize)
+			execMap[j.Tag] = execTime
 		}
 
 		outputJob := autoscale.AlgorithmJob{
@@ -149,7 +168,7 @@ func (lr *LinearRegression) ProcessQueue(jobs []autoscale.AlgorithmJob) ([]autos
 			Parameters:    j.Parameters,
 			State:         j.State,
 			Priority:      j.Priority,
-			ExecutionTime: []int64{execTime},
+			ExecutionTime: execMap,
 			Deadline:      time.Time{},
 			Created:       j.Created,
 			Started:       j.Started,

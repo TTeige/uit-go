@@ -1,7 +1,7 @@
 {
   "aws": {
     "name": "aws",
-    "limit": 10,
+    "limit": 5,
     "tag": "aws",
     "cost_limit": 171471238.0,
     "money_used": 1231333.0,
@@ -31,7 +31,7 @@
   },
   "csc": {
     "name": "csc",
-    "limit": 12,
+    "limit": 4,
     "tag": "csc",
     "cost_limit": 171471238.0,
     "money_used": 12311379.0,
@@ -56,7 +56,7 @@
   },
   "metapipe": {
     "name": "metapipe",
-    "limit": 8,
+    "limit": 4,
     "tag": "metapipe",
     "cost_limit": 785243875.0,
     "money_used": 5211333.0,
