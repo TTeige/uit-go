@@ -4,6 +4,7 @@ import (
 	"time"
 	"github.com/tteige/uit-go/autoscale"
 	"sort"
+	"github.com/tteige/uit-go/metapipe"
 )
 
 type NaiveAlgorithm struct {
@@ -42,7 +43,9 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 			if err != nil {
 				return out, err
 			}
+			//Check if there are room to add more cluster
 			if curClust.GetInstanceLimit() > len(instances) {
+				//Check if the jobs are saturated on instances
 				if len(instances) == runningJobs {
 					break
 				}
@@ -51,11 +54,11 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 					return autoscale.AlgorithmOutput{}, err
 				}
 				var iType autoscale.InstanceType
-				if key == autoscale.AWS {
+				if key == metapipe.AWS {
 					iType = types["c5-4xl"]
-				} else if key == autoscale.Stallo {
+				} else if key == metapipe.Stallo {
 					iType = types["default"]
-				} else if key == autoscale.CPouta {
+				} else if key == metapipe.CPouta {
 					iType = types["default"]
 				}
 				instance := autoscale.Instance{
@@ -68,6 +71,17 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 					return autoscale.AlgorithmOutput{}, err
 				}
 				outInstances = append(outInstances, instance)
+			} else {
+				//If all instances have been used, check for inactive instances and use them instead
+				for _, i := range instances {
+					if i.State == "INACTIVE" {
+						_, err = curClust.AddInstance(&i, startTime)
+						if err != nil {
+							return autoscale.AlgorithmOutput{}, err
+						}
+						break
+					}
+				}
 			}
 		}
 		//DELETE instances based on the queue size, if the instance size is larger than queue,
@@ -84,6 +98,30 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 			}
 		}
 
+		for key, _ := range input.Clouds {
+			if _, ok := queueMap[key]; !ok {
+				instances, err := input.Clouds[key].GetInstances()
+				if err != nil {
+					return autoscale.AlgorithmOutput{}, err
+				}
+				for _, inst := range instances {
+					if inst.State == "INACTIVE" {
+						err := input.Clouds[key].DeleteInstance(inst.Id, startTime)
+						if err != nil {
+							return autoscale.AlgorithmOutput{}, err
+						}
+					}
+				}
+			}
+		}
+		sort.Slice(queue, func(i, j int) bool {
+			if queue[i].Priority > queue[j].Priority {
+				return true
+			} else if queue[i].Priority == queue[j].Priority {
+				return queue[i].Deadline.Before(queue[j].Deadline)
+			}
+			return false
+		})
 		queueMap[key] = queue
 	}
 
