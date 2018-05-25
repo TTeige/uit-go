@@ -103,13 +103,14 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 		}
 
 		//Selects jobs that are created before the timestamp
-		deleted := 0
+		removedFromCompleted := 0
 		for k := range completeQueue {
-			j := k - deleted
+			j := k - removedFromCompleted
 			if completeQueue[j].Created.Before(algTimestamp) {
 				algInput.JobQueue = append(algInput.JobQueue, completeQueue[j])
+				//sim.Log.Printf("Added job %v to the queue", completeQueue[j])
 				completeQueue = completeQueue[:j+copy(completeQueue[j:], completeQueue[j+1:])]
-				deleted++
+				removedFromCompleted++
 			}
 		}
 		//Run the algorithm
@@ -159,12 +160,8 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 						queue[j].Started = algTimestamp
 					}
 				}
-
-				//if deleted == len(instances) {
-				//	break
-				//}
 				//Simulates a job finishing
-				t := queue[j].Started.Add(time.Duration(time.Millisecond * time.Duration(queue[j].ExecutionTime[0])))
+				t := queue[j].Started.Add(time.Duration(time.Millisecond * time.Duration(queue[j].ExecutionTime[queue[j].Tag])))
 				if t.Before(algTimestamp) && queue[j].State == "RUNNING" {
 					queue[j].State = "FINISHED"
 					instanceIndex := sort.Search(len(instances), func(i int) bool {
@@ -172,7 +169,7 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 					})
 					if instanceIndex < len(instances) && instances[instanceIndex].State == "ACTIVE" {
 						instances[instanceIndex].State = "INACTIVE"
-						sim.Log.Printf("Job: %+v finished on instance %+v %s", queue[j], instances[instanceIndex], key)
+						//sim.Log.Printf("Job: %+v finished on instance %+v %s", queue[j], instances[instanceIndex], key)
 						queue = queue[:j+copy(queue[j:], queue[j+1:])]
 						deleted++
 					} else {
@@ -184,12 +181,15 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 			for _, jobAfterDelete := range queue {
 				newInputQueue = append(newInputQueue, jobAfterDelete)
 			}
+			dur, err := getTotalDuration(queue, instances, algTimestamp)
+			sim.Log.Printf("%s has a total expected queue duration of %v", key, time.Duration(dur)*time.Millisecond)
 
 			resp[key] = queue
 		}
 		jsonSimQueue[i] = resp
 		algInput.JobQueue = newInputQueue
-		sim.Log.Printf("%+v", out.Instances)
+		sim.Log.Println("-------------------------------------------------------------")
+		//sim.Log.Printf("%+v", out.Instances)
 	}
 	err := sim.endRun(simId)
 	if err != nil {
@@ -245,19 +245,19 @@ func setScalingIds(clouds autoscale.CloudCollection, id string) {
 	}
 }
 
-func (sim *Simulator) createClouds(inClusterStates autoscale.ClusterCollection) (autoscale.CloudCollection, error) {
+func (sim *Simulator) createMetapipeClouds(inClusterStates autoscale.ClusterCollection) (autoscale.CloudCollection, error) {
 	simCloudMap := make(autoscale.CloudCollection)
 
-	simCloudMap[autoscale.CPouta] = &SimCloud{
-		Cluster: inClusterStates[autoscale.CPouta],
+	simCloudMap[metapipe.CPouta] = &SimCloud{
+		Cluster: inClusterStates[metapipe.CPouta],
 		Db:      sim.DB,
 	}
-	simCloudMap[autoscale.AWS] = &SimCloud{
-		Cluster: inClusterStates[autoscale.AWS],
+	simCloudMap[metapipe.AWS] = &SimCloud{
+		Cluster: inClusterStates[metapipe.AWS],
 		Db:      sim.DB,
 	}
-	simCloudMap[autoscale.Stallo] = &SimCloud{
-		Cluster: inClusterStates[autoscale.Stallo],
+	simCloudMap[metapipe.Stallo] = &SimCloud{
+		Cluster: inClusterStates[metapipe.Stallo],
 		Db:      sim.DB,
 	}
 	return simCloudMap, nil
@@ -282,12 +282,12 @@ func (sim *Simulator) handleMetapipe(r *http.Request) (string, autoscale.Algorit
 	}
 
 	if reqInput.Clusters != nil {
-		simC, err = sim.createClouds(reqInput.Clusters)
+		simC, err = sim.createMetapipeClouds(reqInput.Clusters)
 		if err != nil {
 			return simId, algInput, completeQueue, algTimestamp, err
 		}
 	} else {
-		simC, err = sim.createClouds(sim.SimClusters)
+		simC, err = sim.createMetapipeClouds(sim.SimClusters)
 		if err != nil {
 			return simId, algInput, completeQueue, algTimestamp, err
 		}
@@ -320,4 +320,40 @@ func (sim *Simulator) handleMetapipe(r *http.Request) (string, autoscale.Algorit
 		algTimestamp = defaultTime
 	}
 	return simId, algInput, completeQueue, algTimestamp, nil
+}
+
+func getTotalDuration(queue []autoscale.AlgorithmJob, instances []autoscale.Instance, currentTime time.Time) (int64, error) {
+	activeInstances := 0
+	for _, i := range instances {
+		if i.State == "ACTIVE" {
+			activeInstances++
+		}
+	}
+	if activeInstances == 0 {
+		return 0, nil
+	}
+	longestInstanceUpTime := make([]int64, activeInstances)
+	for i := 0; i < len(queue); i = i + activeInstances {
+		for j := 0; j < activeInstances; j++ {
+			if i+j > len(queue)-1 {
+				break
+			}
+			timeLeftOfJob := time.Duration(queue[i+j].ExecutionTime[queue[i+j].Tag]) * time.Millisecond
+			//The running jobs
+			if queue[i+j].State == "RUNNING" {
+				sinceStart := currentTime.Sub(queue[i+j].Started)
+				timeLeftOfJob = timeLeftOfJob - sinceStart
+			}
+			longestInstanceUpTime[j] += int64(timeLeftOfJob / time.Millisecond)
+		}
+	}
+
+	var longest int64
+	longest = 0
+	for _, l := range longestInstanceUpTime {
+		if longest < l {
+			longest = l
+		}
+	}
+	return longest, nil
 }
