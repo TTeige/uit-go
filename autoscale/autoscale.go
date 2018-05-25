@@ -60,6 +60,7 @@ type AlgorithmJob struct {
 	ExecutionTime []int64
 	Deadline      time.Time
 	Created       time.Time
+	Started       time.Time
 }
 
 type Algorithm interface {

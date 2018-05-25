@@ -152,6 +152,7 @@ func (lr *LinearRegression) ProcessQueue(jobs []autoscale.AlgorithmJob) ([]autos
 			ExecutionTime: []int64{execTime},
 			Deadline:      time.Time{},
 			Created:       j.Created,
+			Started:       j.Started,
 		}
 		out = append(out, outputJob)
 	}
