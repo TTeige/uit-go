@@ -51,12 +51,11 @@ func (c *SimCloud) AddInstance(instance *autoscale.Instance, currentTime time.Ti
 
 	eventType := "CREATED"
 	instance.State = "ACTIVE"
-	reusedIndex := -1
 	for i, inst := range c.Cluster.ActiveInstances {
 		if inst.State == "INACTIVE" && inst.Type == instance.Type {
 			instance.Id = inst.Id
 			eventType = "REUSED"
-			reusedIndex = i
+			c.Cluster.ActiveInstances[i] = *instance
 			break
 		}
 	}
@@ -78,8 +77,6 @@ func (c *SimCloud) AddInstance(instance *autoscale.Instance, currentTime time.Ti
 
 	if eventType == "CREATED" {
 		c.Cluster.ActiveInstances = append(c.Cluster.ActiveInstances, *instance)
-	} else if eventType == "REUSED" {
-		c.Cluster.ActiveInstances[reusedIndex] = *instance
 	}
 
 	return instance.Id, nil
