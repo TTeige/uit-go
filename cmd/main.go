@@ -1,18 +1,18 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
-	"log"
+	"github.com/tteige/uit-go/algorithm"
+	"github.com/tteige/uit-go/autoscale"
 	"github.com/tteige/uit-go/autoscalingService"
+	"github.com/tteige/uit-go/config"
+	"github.com/tteige/uit-go/estimator"
+	"github.com/tteige/uit-go/metapipe"
 	"github.com/tteige/uit-go/models"
 	"github.com/tteige/uit-go/simulator"
-	"github.com/tteige/uit-go/algorithm"
+	"log"
 	"os"
-	"github.com/tteige/uit-go/config"
-	"github.com/tteige/uit-go/autoscale"
-	"encoding/json"
-	"github.com/tteige/uit-go/metapipe"
-	"github.com/tteige/uit-go/estimator"
 )
 
 func main() {
