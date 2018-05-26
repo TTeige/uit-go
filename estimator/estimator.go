@@ -124,7 +124,7 @@ func (lr *LinearRegression) ProcessQueue(jobs []autoscale.AlgorithmJob) ([]autos
 	}
 
 	for _, j := range jobs {
-		if j.State == "CANCELLED" || j.State == "DELAYED" {
+		if j.State == "CANCELLED" {
 			continue
 		}
 
@@ -137,7 +137,7 @@ func (lr *LinearRegression) ProcessQueue(jobs []autoscale.AlgorithmJob) ([]autos
 
 		dataSize, err := client.GetMetapipeJobSize(j.Id)
 		if err != nil {
-			return nil, err
+			continue
 		}
 		execMap := make(map[string]int64)
 		var execTime int64
