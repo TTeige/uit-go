@@ -54,7 +54,7 @@ func (sim *Simulator) serveSim() {
 
 func (sim *Simulator) getAllSimulations(w http.ResponseWriter, r *http.Request) {
 	sim.Log.Print("GetAllSimulationsRequest: /simulation/all")
-	sims, err := models.GetAllSimulationStats(sim.DB)
+	sims, err := models.GetAllAutoscalingRunStats(sim.DB)
 	if err != nil {
 		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -73,12 +73,12 @@ func (sim *Simulator) getPreviousScalingHandle(w http.ResponseWriter, r *http.Re
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	var simList [][]models.SimEvent
+	var simList [][]models.CloudEvent
 	q := raw.Query()
 	if val, ok := q["id"]; ok {
 		sim.Log.Printf("GetAllSimulationsRequest: /metapipe/simulation/?id=%s", q["id"])
 		for _, i := range val {
-			events, err := models.GetSimEvents(sim.DB, i)
+			events, err := models.GetAutoscalingRunEvents(sim.DB, i)
 			if err != nil && err != sql.ErrNoRows {
 				sim.Log.Print(err)
 				http.Error(w, err.Error(), http.StatusBadRequest)
@@ -108,7 +108,6 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 			j := k - removedFromCompleted
 			if completeQueue[j].Created.Before(algTimestamp) {
 				algInput.JobQueue = append(algInput.JobQueue, completeQueue[j])
-				//sim.Log.Printf("Added job %v to the queue", completeQueue[j])
 				completeQueue = completeQueue[:j+copy(completeQueue[j:], completeQueue[j+1:])]
 				removedFromCompleted++
 			}
@@ -169,7 +168,6 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 					})
 					if instanceIndex < len(instances) && instances[instanceIndex].State == "ACTIVE" {
 						instances[instanceIndex].State = "INACTIVE"
-						//sim.Log.Printf("Job: %+v finished on instance %+v %s", queue[j], instances[instanceIndex], key)
 						queue = queue[:j+copy(queue[j:], queue[j+1:])]
 						deleted++
 					} else {
@@ -189,7 +187,6 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 		jsonSimQueue[i] = resp
 		algInput.JobQueue = newInputQueue
 		sim.Log.Println("-------------------------------------------------------------")
-		//sim.Log.Printf("%+v", out.Instances)
 	}
 	err := sim.endRun(simId)
 	if err != nil {
@@ -216,7 +213,7 @@ func (sim *Simulator) metapipeSimulationHandle(w http.ResponseWriter, r *http.Re
 }
 
 func (sim *Simulator) endRun(id string) error {
-	err := models.UpdateSim(sim.DB, id, time.Now())
+	err := models.UpdateAutoscalingRun(sim.DB, id, time.Now())
 	if err != nil {
 		return err
 	}
@@ -309,7 +306,7 @@ func (sim *Simulator) handleMetapipe(r *http.Request) (string, autoscale.Algorit
 	if friendlyName == "" {
 		friendlyName = ksuid.New().String()
 	}
-	simId, err = models.CreateSimulation(sim.DB, friendlyName, time.Now())
+	simId, err = models.CreateAutoscalingRun(sim.DB, friendlyName, time.Now())
 	if err != nil {
 		return simId, algInput, completeQueue, algTimestamp, err
 	}
