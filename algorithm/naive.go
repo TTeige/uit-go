@@ -11,10 +11,9 @@ type NaiveAlgorithm struct {
 }
 
 func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time) (autoscale.AlgorithmOutput, error) {
-	//TODO: Fix output queue, it is not in order, can be simulator which breaks it.
 	queueMap := make(map[string][]autoscale.AlgorithmJob)
 	var outInstances []autoscale.Instance
-	var out autoscale.AlgorithmOutput
+	out := autoscale.AlgorithmOutput{}
 	for _, j := range input.JobQueue {
 		queueMap[j.Tag] = append(queueMap[j.Tag], j)
 	}
@@ -25,11 +24,25 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 		if err != nil {
 			return out, err
 		}
+
+		//Set running jobs as the first elements
+		//These does not require to use the priority since they are already running, should not pause jobs
+		//First sort on priority
+		//If priority is equal, sort by deadline
 		sort.Slice(queue, func(i, j int) bool {
+			if queue[i].State == "RUNNING" {
+				return true
+			}
 			if queue[i].Priority > queue[j].Priority {
 				return true
 			} else if queue[i].Priority == queue[j].Priority {
-				return queue[i].Deadline.Before(queue[j].Deadline)
+				if queue[i].Deadline.Before(queue[j].Deadline) {
+					//If the job has a closer deadline, increase its priority
+					queue[i].Priority++
+					return true
+				} else {
+					return false
+				}
 			}
 			return false
 		})
@@ -46,10 +59,6 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 			}
 			//Check if there are room to add more cluster
 			if curClust.GetInstanceLimit() > len(instances) {
-				//Check if the jobs are saturated on instances
-				if len(instances) == runningJobs {
-					break
-				}
 				types, err := curClust.GetInstanceTypes()
 				if err != nil {
 					return autoscale.AlgorithmOutput{}, err
@@ -115,14 +124,6 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 				}
 			}
 		}
-		sort.Slice(queue, func(i, j int) bool {
-			if queue[i].Priority > queue[j].Priority {
-				return true
-			} else if queue[i].Priority == queue[j].Priority {
-				return queue[i].Deadline.Before(queue[j].Deadline)
-			}
-			return false
-		})
 		queueMap[key] = queue
 	}
 
