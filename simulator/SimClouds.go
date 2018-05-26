@@ -31,7 +31,7 @@ func (c *SimCloud) GetExpectedJobCost(instanceType string, execTime int64) float
 
 func (c *SimCloud) SetScalingId(id string) error {
 	c.runId = id
-	sim, err := models.GetSimulation(c.Db, id)
+	sim, err := models.GetAutoscalingRun(c.Db, id)
 	if err != nil {
 		return err
 	}
@@ -63,8 +63,8 @@ func (c *SimCloud) AddInstance(instance *autoscale.Instance, currentTime time.Ti
 	if instance.Id == "" {
 		instance.Id = c.Cluster.Name + "_" + ksuid.New().String()
 	}
-	err := models.WriteSimEvent(c.Db, models.SimEvent{
-		SimId:        c.runId,
+	err := models.WriteSimEvent(c.Db, models.CloudEvent{
+		RunId:        c.runId,
 		Created:      currentTime,
 		Instance:     *instance,
 		InstanceType: c.Cluster.Types[instance.Type],
@@ -90,8 +90,8 @@ func (c *SimCloud) DeleteInstance(id string, currentTime time.Time) error {
 	for i, e := range instances {
 		if e.Id == id {
 			c.Cluster.ActiveInstances = append(instances[:i], instances[i+1:]...)
-			models.WriteSimEvent(c.Db, models.SimEvent{
-				SimId:        c.runId,
+			models.WriteSimEvent(c.Db, models.CloudEvent{
+				RunId:        c.runId,
 				Created:      currentTime,
 				Instance:     e,
 				InstanceType: c.Cluster.Types[e.Type],
