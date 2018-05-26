@@ -15,7 +15,7 @@ type Job struct {
 
 func CheckExists(db *sql.DB, jobId string) (bool, error) {
 	existStmt :=
-		`SELECT EXISTS(SELECT 1 FROM jobs WHERE jobid = $1)`
+		`SELECT EXISTS(SELECT 1 FROM estimator_training WHERE jobid = $1)`
 
 	_, err := db.Query(existStmt, jobId)
 
@@ -30,7 +30,7 @@ func CheckExists(db *sql.DB, jobId string) (bool, error) {
 
 func GetJob(db *sql.DB, jobId string) (Job, error) {
 	var job Job
-	err := db.QueryRow("SELECT * FROM jobs WHERE jobid = $1", jobId).Scan(&job.Runtime, &job.Tag, &job.JobId,
+	err := db.QueryRow("SELECT * FROM estimator_training WHERE jobid = $1", jobId).Scan(&job.Runtime, &job.Tag, &job.JobId,
 		&job.InputDataSize, &job.QueueDuration)
 	if err != nil {
 		return Job{}, err
@@ -39,7 +39,7 @@ func GetJob(db *sql.DB, jobId string) (Job, error) {
 }
 
 func GetAllJobs(db *sql.DB) ([]*Job, error) {
-	rows, err := db.Query("SELECT * FROM jobs")
+	rows, err := db.Query("SELECT * FROM estimator_training")
 	defer rows.Close()
 	if err != nil {
 		return nil, err
@@ -66,7 +66,7 @@ func GetAllJobs(db *sql.DB) ([]*Job, error) {
 func InsertJob(db *sql.DB, job Job) error {
 	log.Printf("Inserting job %v", job)
 	sqlStmt :=
-		`INSERT INTO jobs (jobid, runtime, tag, datasetsize, queueduration)
+		`INSERT INTO estimator_training (jobid, runtime, tag, datasetsize, queueduration)
 		VALUES ($1, $2, $3, $4, $5)
 		ON CONFLICT (jobid)
 		DO NOTHING`
@@ -81,7 +81,7 @@ func InsertJob(db *sql.DB, job Job) error {
 func UpdateJob(db *sql.DB, job Job) error {
 
 	sqlStmt :=
-		`UPDATE jobs 
+		`UPDATE estimator_training 
 		SET runtime = $2, tag = $3, datasetsize = $4, queueduration = $5
 		WHERE jobid = $1
 		`
