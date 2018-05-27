@@ -1,30 +1,30 @@
 {
   "aws": {
     "name": "aws",
-    "limit": 5,
+    "limit": 2,
     "tag": "aws",
     "cost_limit": 171471238.0,
     "money_used": 1231333.0,
     "types": {
-      "c5-4xl": {
-        "name": "c5-4xl",
+      "default": {
+        "name": "default",
         "price": 0.68
       }
     },
     "instances": [
       {
         "id": "test_aws_1",
-        "type": "c5-4xl",
+        "type": "default",
         "state": "ACTIVE"
       },
       {
         "id": "test_aws_2",
-        "type": "c5-4xl",
+        "type": "default",
         "state": "INACTIVE"
       },
       {
         "id": "test_aws_3",
-        "type": "c5-4xl",
+        "type": "default",
         "state": "INACTIVE"
       }
     ]
