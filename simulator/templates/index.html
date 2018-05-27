@@ -38,10 +38,7 @@
         return time
     }
 
-    function generateTimelineGraph(data, location) {
-        let simMap = new Map();
-        let timeline = document.getElementById(location);
-        let times = [];
+    function unpackUniqueTimes(data) {
         for (let i = 0; i < data.length; i++) {
             times.push(convertFromISO8601ToDate(data[i]["AlgorithmTimestamp"]));
         }
@@ -49,6 +46,14 @@
         $.each(times, function (i, el) {
             if ($.inArray(el, uniqueTimes) === -1) uniqueTimes.push(el);
         });
+        return uniqueTimes
+    }
+
+    function generateTimelineGraph(data, location) {
+        let simMap = new Map();
+        let timeline = document.getElementById(location);
+        let uniqueTimes = unpackUniqueTimes(data);
+
 
         for (let i = 0; i < data.length; i++) {
             let val;
