@@ -31,8 +31,6 @@ type Cluster struct {
 	AcceptTag       string                  `json:"tag"`
 	Types           map[string]InstanceType `json:"types"`
 	ActiveInstances []Instance              `json:"instances"`
-	CostLimit       float64                 `json:"cost_limit"`
-	MoneyUsed       float64                 `json:"money_used"`
 }
 
 type AlgorithmInput struct {
@@ -70,8 +68,6 @@ type Estimator interface {
 type Cloud interface {
 	Authenticate() error
 	SetScalingId(id string) error
-	GetCostLimit() float64
-	GetCurrentAvailableFunds() float64
 	GetExpectedJobCost(job AlgorithmJob, instanceType string, currentTime time.Time) float64
 	AddInstance(instance *Instance, currentTime time.Time) (string, error)
 	DeleteInstance(id string, currentTime time.Time) error

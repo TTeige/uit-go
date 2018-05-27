@@ -16,14 +16,6 @@ type SimCloud struct {
 	beginTime     time.Time
 }
 
-func (c *SimCloud) GetCurrentAvailableFunds() float64 {
-	return c.Cluster.CostLimit - c.Cluster.MoneyUsed
-}
-
-func (c *SimCloud) GetCostLimit() float64 {
-	return c.Cluster.CostLimit
-}
-
 func (c *SimCloud) GetExpectedJobCost(job autoscale.AlgorithmJob, instanceType string, currentTime time.Time) float64 {
 
 	timeLeftOfJob := time.Duration(job.ExecutionTime[job.Tag]) * time.Millisecond

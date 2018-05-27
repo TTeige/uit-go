@@ -65,8 +65,8 @@ func main() {
 		}
 		s.Run()
 	} else {
-		alg := algorithm.NaiveAlgorithm{}
-
+		//alg := algorithm.NaiveAlgorithm{}
+		alg := algorithm.BadAlgorithm{}
 		simClusterMap, err := loadClouds()
 		if err != nil {
 			log.Fatal(err)
