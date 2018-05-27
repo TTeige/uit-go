@@ -78,4 +78,6 @@ type Cloud interface {
 	GetInstances() ([]Instance, error)
 	GetInstanceTypes() (map[string]InstanceType, error)
 	GetInstanceLimit() int
+	GetTotalDuration(queue []AlgorithmJob, currentTime time.Time) (int64, error)
+	GetTotalCost(queue []AlgorithmJob, currentTime time.Time) float64
 }

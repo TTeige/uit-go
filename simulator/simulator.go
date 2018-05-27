@@ -142,7 +142,7 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 			if key == "" {
 				continue
 			}
-			totalCostBeforeMap[key] = getTotalCost(queueBefore, algInput.Clouds[key], algTimestamp)
+			totalCostBeforeMap[key] = algInput.Clouds[key].GetTotalCost(queueBefore, algTimestamp)
 		}
 
 		//Run the algorithm
@@ -219,12 +219,11 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 				}
 			}
 
-			dur, err := getTotalDuration(queue, instances, algTimestamp)
+			dur, err := algInput.Clouds[key].GetTotalDuration(queue, algTimestamp)
 			if err != nil {
 				return nil, err
 			}
-			queueCost := getTotalCost(queue, algInput.Clouds[key], algTimestamp)
-			sim.Log.Printf("Total cost for queue on %s is %f USD with %+v time left", key, queueCost, dur)
+			queueCost := algInput.Clouds[key].GetTotalCost(queue, algTimestamp)
 			err = models.InsertSimulatorEvent(sim.DB, models.SimulatorEvent{
 				RunName:            simId,
 				QueueDuration:      dur,
@@ -379,52 +378,4 @@ func (sim *Simulator) handleMetapipe(r *http.Request) (string, autoscale.Algorit
 		algTimestamp = defaultTime
 	}
 	return simId, algInput, completeQueue, algTimestamp, nil
-}
-
-func getTotalDuration(queue []autoscale.AlgorithmJob, instances []autoscale.Instance, currentTime time.Time) (int64, error) {
-	activeInstances := 0
-	for _, i := range instances {
-		if i.State == "ACTIVE" {
-			activeInstances++
-		}
-	}
-	if activeInstances == 0 {
-		activeInstances = 1
-	}
-	longestInstanceUpTime := make([]int64, activeInstances)
-	for i := 0; i < len(queue); i = i + activeInstances {
-		for j := 0; j < activeInstances; j++ {
-			if i+j > len(queue)-1 {
-				break
-			}
-			timeLeftOfJob := time.Duration(queue[i+j].ExecutionTime[queue[i+j].Tag]) * time.Millisecond
-			//The running jobs
-			if queue[i+j].State == "RUNNING" {
-				sinceStart := currentTime.Sub(queue[i+j].Started)
-				timeLeftOfJob = timeLeftOfJob - sinceStart
-			}
-			longestInstanceUpTime[j] += int64(timeLeftOfJob / time.Millisecond)
-		}
-	}
-
-	var longest int64
-	longest = 0
-	for _, l := range longestInstanceUpTime {
-		if longest < l {
-			longest = l
-		}
-	}
-	return longest, nil
-}
-
-func getTotalCost(queue []autoscale.AlgorithmJob, cloud autoscale.Cloud, currentTime time.Time) float64 {
-	totalCost := 0.0
-	for _, job := range queue {
-		flavour := job.InstanceFlavour.Name
-		if flavour == "" {
-			flavour = "default"
-		}
-		totalCost += cloud.GetExpectedJobCost(job, flavour, currentTime)
-	}
-	return totalCost
 }
