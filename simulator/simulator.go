@@ -14,10 +14,15 @@ import (
 	"net/url"
 	"io"
 	"github.com/tteige/uit-go/metapipe"
-	"sort"
 )
 
 type simulationOutput map[int]map[string][]autoscale.AlgorithmJob
+type fullSimulationOutput struct {
+	Name        string                   `json:"name"`
+	Jobs        []autoscale.AlgorithmJob `json:"jobs"`
+	SimEvents   []models.SimulatorEvent  `json:"sim_events"`
+	CloudEvents []models.CloudEvent      `json:"cloud_events"`
+}
 
 type Simulator struct {
 	DB          *sql.DB
@@ -73,22 +78,37 @@ func (sim *Simulator) getPreviousScalingHandle(w http.ResponseWriter, r *http.Re
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	var simList [][]models.CloudEvent
+	var out fullSimulationOutput
 	q := raw.Query()
 	if val, ok := q["id"]; ok {
 		sim.Log.Printf("GetAllSimulationsRequest: /metapipe/simulation/?id=%s", q["id"])
-		for _, i := range val {
-			events, err := models.GetAutoscalingRunEvents(sim.DB, i)
-			if err != nil && err != sql.ErrNoRows {
-				sim.Log.Print(err)
-				http.Error(w, err.Error(), http.StatusBadRequest)
-				return
-			}
-			simList = append(simList, events)
+		events, err := models.GetAutoscalingRunEvents(sim.DB, val[0])
+		if err != nil && err != sql.ErrNoRows {
+			sim.Log.Print(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+		out.CloudEvents = events
+
+		simEvents, err := models.GetSimulatorEvents(sim.DB, val[0])
+		if err != nil && err != sql.ErrNoRows {
+			sim.Log.Print(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out.SimEvents = simEvents
+
+		jobs, err := models.GetAllAlgorithmJobs(sim.DB, val[0])
+		if err != nil && err != sql.ErrNoRows {
+			sim.Log.Print(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out.Jobs = jobs
+		out.Name = val[0]
 	}
 
-	b, err := json.Marshal(simList)
+	b, err := json.Marshal(out)
 	w.Write(b)
 }
 
@@ -163,9 +183,19 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 				t := queue[j].Started.Add(time.Duration(time.Millisecond * time.Duration(queue[j].ExecutionTime[queue[j].Tag])))
 				if t.Before(algTimestamp) && queue[j].State == "RUNNING" {
 					queue[j].State = "FINISHED"
-					instanceIndex := sort.Search(len(instances), func(i int) bool {
-						return instances[i].State == "ACTIVE"
-					})
+					instanceIndex := 0
+					for _, instance := range instances {
+						if instance.State == "ACTIVE" {
+							if queue[j].InstanceFlavour != (autoscale.InstanceType{}) {
+								if queue[j].InstanceFlavour.Name == instances[instanceIndex].Type {
+									break
+								}
+							} else {
+								break
+							}
+						}
+						instanceIndex++
+					}
 					if instanceIndex < len(instances) && instances[instanceIndex].State == "ACTIVE" {
 						instances[instanceIndex].State = "INACTIVE"
 						queue = queue[:j+copy(queue[j:], queue[j+1:])]
@@ -176,17 +206,35 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 				}
 			}
 
+			dur, err := getTotalDuration(queue, instances, algTimestamp)
+			if err != nil {
+				return nil, err
+			}
+			queueCost := getTotalCost(queue, algInput.Clouds[key], algTimestamp)
+			sim.Log.Printf("Total cost for queue on %s is %f with %v time left", key, queueCost, dur)
+			err = models.InsertSimulatorEvent(sim.DB, models.SimulatorEvent{
+				RunName:            simId,
+				QueueDuration:      dur,
+				AlgorithmTimestamp: algTimestamp,
+				Tag:                key,
+			})
+			if err != nil {
+				return nil, err
+			}
+
+
 			for _, jobAfterDelete := range queue {
 				newInputQueue = append(newInputQueue, jobAfterDelete)
+				err = models.InsertAlgorithmJob(sim.DB, jobAfterDelete, simId)
+				if err != nil {
+					return nil, err
+				}
 			}
-			dur, err := getTotalDuration(queue, instances, algTimestamp)
-			sim.Log.Printf("%s has a total expected queue duration of %v", key, time.Duration(dur)*time.Millisecond)
 
 			resp[key] = queue
 		}
 		jsonSimQueue[i] = resp
 		algInput.JobQueue = newInputQueue
-		sim.Log.Println("-------------------------------------------------------------")
 	}
 	err := sim.endRun(simId)
 	if err != nil {
@@ -327,7 +375,7 @@ func getTotalDuration(queue []autoscale.AlgorithmJob, instances []autoscale.Inst
 		}
 	}
 	if activeInstances == 0 {
-		return 0, nil
+		activeInstances = 1
 	}
 	longestInstanceUpTime := make([]int64, activeInstances)
 	for i := 0; i < len(queue); i = i + activeInstances {
@@ -353,4 +401,16 @@ func getTotalDuration(queue []autoscale.AlgorithmJob, instances []autoscale.Inst
 		}
 	}
 	return longest, nil
+}
+
+func getTotalCost(queue []autoscale.AlgorithmJob, cloud autoscale.Cloud, currentTime time.Time) float64 {
+	totalCost := 0.0
+	for _, job := range queue {
+		flavour := job.InstanceFlavour.Name
+		if flavour == "" {
+			flavour = "default"
+		}
+		totalCost += cloud.GetExpectedJobCost(job, flavour, currentTime)
+	}
+	return totalCost
 }
