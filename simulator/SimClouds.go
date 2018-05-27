@@ -24,8 +24,17 @@ func (c *SimCloud) GetCostLimit() float64 {
 	return c.Cluster.CostLimit
 }
 
-func (c *SimCloud) GetExpectedJobCost(instanceType string, execTime int64) float64 {
-	cost := c.Cluster.Types[instanceType].PriceIncrement * float64(execTime/int64(time.Hour))
+func (c *SimCloud) GetExpectedJobCost(job autoscale.AlgorithmJob, instanceType string, currentTime time.Time) float64 {
+
+	timeLeftOfJob := time.Duration(job.ExecutionTime[job.Tag]) * time.Millisecond
+	if job.State == "RUNNING" {
+		sinceStart := currentTime.Sub(job.Started)
+		timeLeftOfJob = timeLeftOfJob - sinceStart
+	}
+	timeMin := float64(timeLeftOfJob / time.Minute)
+	timeHours := float64(timeMin / 60)
+	var cost float64
+	cost = float64(c.Cluster.Types[instanceType].PriceIncrement) * timeHours
 	return cost
 }
 
@@ -50,15 +59,16 @@ func (c *SimCloud) GetInstanceLimit() int {
 func (c *SimCloud) AddInstance(instance *autoscale.Instance, currentTime time.Time) (string, error) {
 
 	eventType := "CREATED"
-	instance.State = "ACTIVE"
-	for i, inst := range c.Cluster.ActiveInstances {
+	index := 0
+	for _, inst := range c.Cluster.ActiveInstances {
 		if inst.State == "INACTIVE" && inst.Type == instance.Type {
 			instance.Id = inst.Id
 			eventType = "REUSED"
-			c.Cluster.ActiveInstances[i] = *instance
 			break
 		}
+		index++
 	}
+	instance.State = "ACTIVE"
 
 	if instance.Id == "" {
 		instance.Id = c.Cluster.Name + "_" + ksuid.New().String()
@@ -77,6 +87,8 @@ func (c *SimCloud) AddInstance(instance *autoscale.Instance, currentTime time.Ti
 
 	if eventType == "CREATED" {
 		c.Cluster.ActiveInstances = append(c.Cluster.ActiveInstances, *instance)
+	} else {
+		c.Cluster.ActiveInstances[index] = *instance
 	}
 
 	return instance.Id, nil
