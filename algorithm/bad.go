@@ -11,7 +11,7 @@ type BadAlgorithm struct {
 
 func (BadAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time) (autoscale.AlgorithmOutput, error) {
 	var out autoscale.AlgorithmOutput
-	for key, cloud := range input.Clouds {
+	for _, cloud := range input.Clouds {
 		instances, err := cloud.GetInstances()
 		if err != nil {
 			return out, err
