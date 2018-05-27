@@ -4,17 +4,124 @@
 <html>
 
 <script>
+    function convertFromISO8601ToDate(iso) {
+        iso = iso.replace(/\D/g, " ");
+
+        // trim any hanging white space
+        iso = iso.replace(/\s+$/, "");
+
+        // split on space
+        let dtcomps = iso.split(" ");
+
+        // not all ISO 8601 dates can convert, as is
+        // unless month and date specified, invalid
+        if (dtcomps.length < 3) return "invalid date";
+        // if time not provided, set to zero
+        if (dtcomps.length < 4) {
+            dtcomps[3] = 0;
+            dtcomps[4] = 0;
+            dtcomps[5] = 0;
+        }
+
+        // modify month between 1 based ISO 8601 and zero based Date
+        dtcomps[1]--;
+
+        let convdt = new
+        Date(Date.UTC(dtcomps[0], dtcomps[1], dtcomps[2], dtcomps[3], dtcomps[4], dtcomps[5]));
+
+        return convdt.toUTCString();
+    }
+
+    function millisecToMinutes(time) {
+        time = time / 1000;
+        time = time / 60;
+        return time
+    }
+
+    function generateTimelineGraph(data, location) {
+        let simMap = new Map();
+        let timeline = document.getElementById(location);
+        let times = [];
+        for (let i = 0; i < data.length; i++) {
+            times.push(convertFromISO8601ToDate(data[i]["AlgorithmTimestamp"]));
+        }
+        let uniqueTimes = [];
+        $.each(times, function (i, el) {
+            if ($.inArray(el, uniqueTimes) === -1) uniqueTimes.push(el);
+        });
+
+        for (let i = 0; i < data.length; i++) {
+            let val;
+            if (simMap.has(data[i]["Tag"])) {
+                val = simMap.get(data[i]["Tag"]);
+            } else {
+                val = [];
+            }
+            val.push(data[i]);
+            simMap.set(data[i]["Tag"], val)
+        }
+
+        let newMap = new Map();
+        let keys = simMap.keys();
+        while (true) {
+            let it = keys.next();
+            if (it.done) {
+                break
+            }
+            newMap.set(it.value, new Array(uniqueTimes.length));
+        }
+        for (let k = 0; k < uniqueTimes.length; k++) {
+            keys = newMap.keys();
+            while (true) {
+                let it = keys.next();
+                if (it.done) {
+                    break
+                }
+                let val = newMap.get(it.value);
+                let old = simMap.get(it.value);
+                for (let i = 0; i < old.length; i++) {
+                    if (convertFromISO8601ToDate(old[i]["AlgorithmTimestamp"]) === uniqueTimes[k]) {
+                        val[k] = old[i]["QueueDuration"];
+                        val[k] = millisecToMinutes(val[k]);
+                        break
+                    } else {
+                        val[k] = 0
+                    }
+                }
+                newMap.set(it.value, val);
+            }
+        }
+        console.log(newMap);
+        let graphData = [];
+
+        function pushData(value, key, map) {
+            graphData.push({
+                x: uniqueTimes,
+                y: value,
+                mode: "lines",
+                name: key,
+                type: "scatter"
+            });
+        }
+
+        newMap.forEach(pushData);
+        Plotly.newPlot(timeline, graphData)
+    }
+
     function dropdownButtonClick(event) {
         let pid = $(this).parent().attr('id');
-        parSibs = $("#"+pid).siblings();
+        parSibs = $("#" + pid).siblings();
         parSibs[0].innerText = event.target.innerText;
 
         $.ajax({
-            url: "/simulation/?id=" + event.target.innerText,
+            url: "/metapipe/simulation/?id=" + event.target.innerText,
             success: function (data) {
                 data = JSON.parse(data);
-                for (let i = 0; i < data.length; i++) {
-                    console.log(data)
+                console.log(data);
+                if (pid === "simSelector0") {
+                    generateTimelineGraph(data["sim_events"], "graph1");
+                } else {
+                    generateTimelineGraph(data["sim_events"], "graph2");
                 }
             }
         })
@@ -22,7 +129,7 @@
 
     function getSimulations() {
         $.ajax({
-            url: "/simulation/all",
+            url: "/metapipe/simulation/all",
             success: function (data) {
                 data = JSON.parse(data);
                 for (let i = 0; i < data.length; i++) {
@@ -48,7 +155,8 @@
         <div class="row">
             <div class="col-sm">
                 <div class="dropdown">
-                    <button id="dropdownBtn0" class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton"
+                    <button id="dropdownBtn0" class="btn btn-secondary dropdown-toggle" type="button"
+                            id="dropdownMenuButton"
                             data-toggle="dropdown"
                             aria-haspopup="true" aria-expanded="false">
                         Select Simulation
@@ -59,13 +167,21 @@
             </div>
             <div class="col-sm">
                 <div class="dropdown">
-                    <button id="dropdownBtn1" class="btn btn-secondary dropdown-toggle" type="button" id="dropdownMenuButton" data-toggle="dropdown"
+                    <button id="dropdownBtn1" class="btn btn-secondary dropdown-toggle" type="button"
+                            id="dropdownMenuButton" data-toggle="dropdown"
                             aria-haspopup="true" aria-expanded="false">
                         Select Second Simulation
                     </button>
                     <div id="simSelector1" class="dropdown-menu" aria-labelledby="dropdownMenuButton">
                     </div>
                 </div>
+            </div>
+            <div class="w-100"></div>
+            <div class="col-sm">
+                <div id="graph1"></div>
+            </div>
+            <div class="col-sm">
+                <div id="graph2"></div>
             </div>
         </div>
     </div>
