@@ -139,6 +139,9 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 		}
 		totalCostBeforeMap := make(map[string]float64)
 		for key, queueBefore := range queueMapBefore {
+			if key == "" {
+				continue
+			}
 			totalCostBeforeMap[key] = getTotalCost(queueBefore, algInput.Clouds[key], algTimestamp)
 		}
 
