@@ -132,6 +132,16 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 				removedFromCompleted++
 			}
 		}
+
+		queueMapBefore := make(map[string][]autoscale.AlgorithmJob)
+		for _, j := range algInput.JobQueue {
+			queueMapBefore[j.Tag] = append(queueMapBefore[j.Tag], j)
+		}
+		totalCostBeforeMap := make(map[string]float64)
+		for key, queueBefore := range queueMapBefore {
+			totalCostBeforeMap[key] = getTotalCost(queueBefore, algInput.Clouds[key], algTimestamp)
+		}
+
 		//Run the algorithm
 		out, err := sim.Algorithm.Run(algInput, algTimestamp)
 		if err != nil {
@@ -211,17 +221,18 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 				return nil, err
 			}
 			queueCost := getTotalCost(queue, algInput.Clouds[key], algTimestamp)
-			sim.Log.Printf("Total cost for queue on %s is %f with %v time left", key, queueCost, dur)
+			sim.Log.Printf("Total cost for queue on %s is %f USD with %+v time left", key, queueCost, dur)
 			err = models.InsertSimulatorEvent(sim.DB, models.SimulatorEvent{
 				RunName:            simId,
 				QueueDuration:      dur,
 				AlgorithmTimestamp: algTimestamp,
 				Tag:                key,
+				CostBefore:         totalCostBeforeMap[key],
+				CostAfter:          queueCost,
 			})
 			if err != nil {
 				return nil, err
 			}
-
 
 			for _, jobAfterDelete := range queue {
 				newInputQueue = append(newInputQueue, jobAfterDelete)
