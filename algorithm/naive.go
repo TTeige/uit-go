@@ -65,7 +65,7 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 				}
 				var iType autoscale.InstanceType
 				if key == metapipe.AWS {
-					iType = types["c5-4xl"]
+					iType = types["default"]
 				} else if key == metapipe.Stallo {
 					iType = types["default"]
 				} else if key == metapipe.CPouta {
