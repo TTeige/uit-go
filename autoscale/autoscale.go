@@ -46,15 +46,16 @@ type AlgorithmOutput struct {
 }
 
 type AlgorithmJob struct {
-	Id            string
-	Tag           string
-	Parameters    JobParameters
-	State         string
-	Priority      int
-	ExecutionTime map[string]int64
-	Deadline      time.Time
-	Created       time.Time
-	Started       time.Time
+	Id              string
+	Tag             string
+	Parameters      JobParameters
+	State           string
+	Priority        int
+	ExecutionTime   map[string]int64
+	Deadline        time.Time
+	Created         time.Time
+	Started         time.Time
+	InstanceFlavour InstanceType
 }
 
 type Algorithm interface {
@@ -71,7 +72,7 @@ type Cloud interface {
 	SetScalingId(id string) error
 	GetCostLimit() float64
 	GetCurrentAvailableFunds() float64
-	GetExpectedJobCost(instanceType string, execTime int64) float64
+	GetExpectedJobCost(job AlgorithmJob, instanceType string, currentTime time.Time) float64
 	AddInstance(instance *Instance, currentTime time.Time) (string, error)
 	DeleteInstance(id string, currentTime time.Time) error
 	GetInstances() ([]Instance, error)
