@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 	"strings"
+	"math"
 )
 
 const (
@@ -117,14 +118,17 @@ func ConvertToMetapipeParamaters(parameters autoscale.JobParameters) Parameters 
 }
 
 func ParseMetapipeTimestamp(stamp string) (time.Time, error) {
-	t, err := strconv.ParseInt(stamp[:10], 10, 64)
+	t, err := strconv.ParseInt(stamp, 10, 64)
 	if err != nil {
 		return time.Time{}, err
 	}
-	n, err := strconv.ParseInt(stamp[11:], 10, 64)
-	if err != nil {
-		return time.Time{}, err
+	var n int64
+	n = 0
+	if len(stamp) > 10 {
+		n = t % 1000
 	}
+	t = t / 1 * int64(math.Pow10(10))
+
 	return time.Unix(t, n), nil
 }
 
@@ -513,6 +517,101 @@ func GetMetapipeJobs(defaultTime time.Time) []autoscale.AlgorithmJob {
 			ExecutionTime: map[string]int64{"metapipe": 34712713},
 			Deadline:      defaultTime.Add(time.Hour * 2),
 			Created:       defaultTime.Add(time.Hour * 1),
+			Started:       time.Time{},
+		},
+		{
+			Id:  "p",
+			Tag: "",
+			Parameters: ConvertFromMetapipeParameters(Parameters{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			}),
+			State:         "QUEUED",
+			Priority:      1,
+			ExecutionTime: map[string]int64{"metapipe": 34712713, "csc": 14712713, "aws": 24712713},
+			Deadline:      defaultTime.Add(time.Hour * 30),
+			Created:       defaultTime.Add(time.Hour * 29),
+			Started:       time.Time{},
+		},
+		{
+			Id:  "q",
+			Tag: "",
+			Parameters: ConvertFromMetapipeParameters(Parameters{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			}),
+			State:         "QUEUED",
+			Priority:      1,
+			ExecutionTime: map[string]int64{"metapipe": 34712713, "csc": 14712713, "aws": 24712713},
+			Deadline:      defaultTime.Add(time.Hour * 12),
+			Created:       defaultTime.Add(time.Hour * 10),
+			Started:       time.Time{},
+		},
+		{
+			Id:  "r",
+			Tag: "",
+			Parameters: ConvertFromMetapipeParameters(Parameters{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			}),
+			State:         "QUEUED",
+			Priority:      1,
+			ExecutionTime: map[string]int64{"metapipe": 34712713, "csc": 14712713, "aws": 24712713},
+			Deadline:      defaultTime.Add(time.Hour * 22),
+			Created:       defaultTime.Add(time.Hour * 20),
+			Started:       time.Time{},
+		},
+		{
+			Id:  "s",
+			Tag: "",
+			Parameters: ConvertFromMetapipeParameters(Parameters{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			}),
+			State:         "QUEUED",
+			Priority:      1,
+			ExecutionTime: map[string]int64{"metapipe": 34712713, "csc": 14712713, "aws": 24712713},
+			Deadline:      defaultTime.Add(time.Hour * 15),
+			Created:       defaultTime.Add(time.Hour * 12),
+			Started:       time.Time{},
+		},
+		{
+			Id:  "t",
+			Tag: "",
+			Parameters: ConvertFromMetapipeParameters(Parameters{
+				InputContigsCutoff:     500,
+				UseBlastUniref50:       true,
+				UseInterproScan5:       false,
+				UsePriam:               false,
+				RemoveNonCompleteGenes: true,
+				ExportMergedGenbank:    false,
+				UseBlastMarRef:         false,
+			}),
+			State:         "QUEUED",
+			Priority:      2000,
+			ExecutionTime: map[string]int64{"metapipe": 34712713, "csc": 14712713, "aws": 24712713},
+			Deadline:      defaultTime.Add(time.Hour * 15),
+			Created:       defaultTime.Add(time.Hour * 4),
 			Started:       time.Time{},
 		},
 	}
