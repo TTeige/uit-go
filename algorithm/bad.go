@@ -17,21 +17,34 @@ func (BadAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time) (au
 			return out, err
 		}
 		for len(instances) > 1 {
-			cloud.DeleteInstance(instances[0].Id, startTime)
+			index := 0
+			for _, instance := range instances {
+				if instance.State == "INACTIVE" {
+					break
+				}
+				index++
+			}
+			if index < len(instances) && instances[index].State == "INACTIVE" {
+				cloud.DeleteInstance(instances[index].Id, startTime)
+				instances, err = cloud.GetInstances()
+				if err != nil {
+					return out, err
+				}
+			} else if index == len(instances) {
+				break
+			}
 		}
-		var iType autoscale.InstanceType
-		types, err := cloud.GetInstanceTypes()
-		if err != nil {
-			return out, err
-		}
-		if key == metapipe.AWS {
-			iType = types["c5-4xl"]
-		} else if key == metapipe.Stallo {
-			iType = types["default"]
-		} else if key == metapipe.CPouta {
-			iType = types["default"]
+		instances, err = cloud.GetInstances()
+		if len(instances) == 1 && instances[0].State == "INACTIVE" {
+			cloud.AddInstance(&instances[0], startTime)
 		}
 		if len(instances) == 0 {
+
+			types, err := cloud.GetInstanceTypes()
+			if err != nil {
+				return out, err
+			}
+			iType := types["default"]
 			i := autoscale.Instance{
 				Id:    "",
 				Type:  iType.Name,
