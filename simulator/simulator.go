@@ -162,6 +162,9 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 
 		//Iterate the queues in the map
 		for key, queue := range queueMap {
+			if _, ok := algInput.Clouds[key]; !ok {
+				continue
+			}
 			instances, err := algInput.Clouds[key].GetInstances()
 			if err != nil {
 				return nil, err
