@@ -172,13 +172,13 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 
 			instancesActive := 0
 			for _, i := range instances {
-				if i.State == "ACTIVE" {
+				if i.State == autoscale.ACTIVE {
 					instancesActive++
 				}
 			}
 			runningJobs := 0
 			for _, i := range queue {
-				if i.State == "RUNNING" {
+				if i.State == autoscale.RUNNING {
 					runningJobs++
 				}
 			}
@@ -189,19 +189,19 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 				j := k - deleted
 				//Simulate the job manager launching the job on the correct cluster
 				if instancesActive > runningJobs {
-					if queue[j].State != "RUNNING" {
-						queue[j].State = "RUNNING"
+					if queue[j].State != autoscale.RUNNING {
+						queue[j].State = autoscale.RUNNING
 						runningJobs++
 						queue[j].Started = algTimestamp
 					}
 				}
 				//Simulates a job finishing
 				t := queue[j].Started.Add(time.Duration(time.Millisecond * time.Duration(queue[j].ExecutionTime[queue[j].Tag])))
-				if t.Before(algTimestamp) && queue[j].State == "RUNNING" {
-					queue[j].State = "FINISHED"
+				if t.Before(algTimestamp) && queue[j].State == autoscale.RUNNING {
+					queue[j].State = autoscale.FINISHED
 					instanceIndex := 0
 					for _, instance := range instances {
-						if instance.State == "ACTIVE" {
+						if instance.State == autoscale.ACTIVE {
 							if queue[j].InstanceFlavour != (autoscale.InstanceType{}) {
 								if queue[j].InstanceFlavour.Name == instances[instanceIndex].Type {
 									break
@@ -212,8 +212,8 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 						}
 						instanceIndex++
 					}
-					if instanceIndex < len(instances) && instances[instanceIndex].State == "ACTIVE" {
-						instances[instanceIndex].State = "INACTIVE"
+					if instanceIndex < len(instances) && instances[instanceIndex].State == autoscale.ACTIVE {
+						instances[instanceIndex].State = autoscale.INACTIVE
 						queue = queue[:j+copy(queue[j:], queue[j+1:])]
 						deleted++
 					} else {
@@ -272,6 +272,7 @@ func (sim *Simulator) metapipeSimulationHandle(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	w.WriteHeader(http.StatusCreated)
 	enc := json.NewEncoder(w)
 	err = enc.Encode(&jsonSimQueue)
 }

@@ -84,12 +84,12 @@ func (BadAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time) (au
 		for len(instances) > 1 {
 			index := 0
 			for _, instance := range instances {
-				if instance.State == "INACTIVE" {
+				if instance.State == autoscale.INACTIVE {
 					break
 				}
 				index++
 			}
-			if index < len(instances) && instances[index].State == "INACTIVE" {
+			if index < len(instances) && instances[index].State == autoscale.INACTIVE {
 				cloud.DeleteInstance(instances[index].Id, startTime)
 				instances, err = cloud.GetInstances()
 				if err != nil {
@@ -100,7 +100,7 @@ func (BadAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time) (au
 			}
 		}
 		instances, err = cloud.GetInstances()
-		if len(instances) == 1 && instances[0].State == "INACTIVE" {
+		if len(instances) == 1 && instances[0].State == autoscale.INACTIVE {
 			cloud.AddInstance(&instances[0], startTime)
 		}
 		if len(instances) == 0 {

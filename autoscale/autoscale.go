@@ -4,6 +4,13 @@ import (
 	"time"
 )
 
+const (
+	RUNNING = "RUNNING"
+	FINISHED = "FINISHED"
+	ACTIVE = "ACTIVE"
+	INACTIVE = "INACTIVE"
+)
+
 type ClusterCollection map[string]Cluster
 type CloudCollection map[string]Cloud
 type JobParameters map[string]string

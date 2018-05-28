@@ -84,7 +84,7 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 		//First sort on priority
 		//If priority is equal, sort by deadline
 		sort.Slice(queue, func(i, j int) bool {
-			if queue[i].State == "RUNNING" {
+			if queue[i].State == autoscale.RUNNING {
 				return true
 			}
 			if queue[i].Priority > queue[j].Priority {
@@ -103,7 +103,7 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 
 		runningJobs := 0
 		for _, job := range queue {
-			if job.State == "RUNNING" {
+			if job.State == autoscale.RUNNING {
 				runningJobs++
 				continue
 			}
@@ -131,7 +131,7 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 			} else {
 				//If all instances have been used, check for inactive instances and use them instead
 				for _, i := range instances {
-					if i.State == "INACTIVE" {
+					if i.State == autoscale.INACTIVE {
 						_, err = curClust.AddInstance(&i, startTime)
 						if err != nil {
 							return autoscale.AlgorithmOutput{}, err
@@ -145,7 +145,7 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 		//there should be at least one INACTIVE instance
 		if len(instances) > (len(queue)) {
 			for _, i := range instances {
-				if i.State == "INACTIVE" {
+				if i.State == autoscale.INACTIVE {
 					err = curClust.DeleteInstance(i.Id, startTime)
 					if err != nil {
 						return autoscale.AlgorithmOutput{}, err
@@ -162,7 +162,7 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 					return autoscale.AlgorithmOutput{}, err
 				}
 				for _, inst := range instances {
-					if inst.State == "INACTIVE" {
+					if inst.State == autoscale.INACTIVE {
 						err := input.Clouds[key].DeleteInstance(inst.Id, startTime)
 						if err != nil {
 							return autoscale.AlgorithmOutput{}, err
