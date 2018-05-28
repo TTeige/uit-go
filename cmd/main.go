@@ -13,6 +13,7 @@ import (
 	"github.com/tteige/uit-go/simulator"
 	"log"
 	"os"
+	"database/sql"
 )
 
 func main() {
@@ -57,17 +58,27 @@ func main() {
 		DB:   db,
 	}
 
+	//alg := algorithm.NaiveAlgorithm{}
+	alg := algorithm.BadAlgorithm{}
+
 	if *service {
+		clusters, err := loadClusters("CLUSTER_CONFIG")
+		clouds, err := createMetapipeClouds(db, clusters)
+		if err != nil {
+			return
+		}
 		log.Printf("Starting the auto scaling service at: %s ", serviceHostname)
 		s := autoscalingService.Service{
-			DB:       db,
-			Hostname: serviceHostname,
+			DB:        db,
+			Hostname:  serviceHostname,
+			Clouds:    clouds,
+			Algorithm: alg,
+			Log:       log.New(os.Stdout, "AUTOSCALE LOGGER: ", log.Lshortfile|log.LstdFlags),
+			Estimator: &est,
 		}
 		s.Run()
 	} else {
-		//alg := algorithm.NaiveAlgorithm{}
-		alg := algorithm.BadAlgorithm{}
-		simClusterMap, err := loadClouds()
+		simClusterMap, err := loadClusters("SIM_CLUSTER_CONFIG")
 		if err != nil {
 			log.Fatal(err)
 			return
@@ -86,10 +97,28 @@ func main() {
 	return
 }
 
-func loadClouds() (autoscale.ClusterCollection, error) {
+func createMetapipeClouds(db *sql.DB, clusters autoscale.ClusterCollection) (autoscale.CloudCollection, error) {
+	simCloudMap := make(autoscale.CloudCollection)
+
+	simCloudMap[metapipe.CPouta] = &autoscalingService.CPouta{
+		Cluster: clusters[metapipe.CPouta],
+		DB:      db,
+	}
+	simCloudMap[metapipe.AWS] = &autoscalingService.Aws{
+		Cluster: clusters[metapipe.AWS],
+		DB:      db,
+	}
+	simCloudMap[metapipe.Stallo] = &autoscalingService.Stallo{
+		Cluster: clusters[metapipe.Stallo],
+		DB:      db,
+	}
+	return simCloudMap, nil
+}
+
+func loadClusters(configEnvName string) (autoscale.ClusterCollection, error) {
 	simClusterMap := make(autoscale.ClusterCollection)
 
-	configLocation := os.Getenv("SIM_CLUSTER_CONFIG")
+	configLocation := os.Getenv(configEnvName)
 	reader, err := os.Open(configLocation)
 	if err != nil {
 		return nil, err
@@ -99,29 +128,6 @@ func loadClouds() (autoscale.ClusterCollection, error) {
 	err = dec.Decode(&simClusterMap)
 	if err != nil {
 		return nil, err
-	}
-
-	configLocation = os.Getenv("SIM_INSTANCE_FLAVOURS_CONFIG")
-	if configLocation == "" {
-		return simClusterMap, nil
-	}
-	reader, err = os.Open(configLocation)
-	if err != nil {
-		return nil, err
-	}
-
-	flavours := make(map[string]map[string]autoscale.InstanceType)
-
-	dec = json.NewDecoder(reader)
-	err = dec.Decode(&flavours)
-	if err != nil {
-		return nil, err
-	}
-
-	for k, v := range flavours {
-		c := simClusterMap[k]
-		c.Types = v
-		simClusterMap[k] = c
 	}
 
 	return simClusterMap, nil
