@@ -12,12 +12,20 @@ import (
 	"io"
 	"github.com/tteige/uit-go/autoscale"
 	"log"
+	"net/url"
 )
 
 type scalingInput struct {
 	Name      string         `json:"name"`
 	Queue     []metapipe.Job `json:"queue"`
 	StartTime string         `json:"start_time"`
+}
+
+type prevRun struct {
+	Queue []autoscale.AlgorithmJob `json:"queue"`
+	CloudEvents []models.CloudEvent `json:"cloud_events"`
+	Start time.Time `json:"start"`
+	Finish time.Time `json:"finish"`
 }
 
 type Service struct {
@@ -30,7 +38,6 @@ type Service struct {
 }
 
 func (s *Service) indexHandle(w http.ResponseWriter, r *http.Request) {
-	// Create serving for the overview of the algorithms that have been input to the scaling server
 }
 
 func (s *Service) runScalingHandle(w http.ResponseWriter, r *http.Request) {
@@ -49,9 +56,27 @@ func (s *Service) runScalingHandle(w http.ResponseWriter, r *http.Request) {
 
 	friendlyName := reqInput.Name
 	if friendlyName == "" {
+		friendlyName = ksuid.New().String()
+		s.Log.Printf("No name was given, created name %s", friendlyName)
+	}
+
+	if reqInput.Queue == nil {
+		s.Log.Print("Empty queue")
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	algJobs, err := metapipe.ConvertMetapipeQueueToAlgInputJobs(reqInput.Queue)
+	if err != nil {
 		s.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
-		friendlyName = ksuid.New().String()
+		return
+	}
+	algInput.JobQueue, err = s.Estimator.ProcessQueue(algJobs)
+	if err != nil {
+		s.Log.Print(err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 	runId, err := models.CreateAutoscalingRun(s.DB, friendlyName, time.Now())
 	if err != nil {
@@ -63,8 +88,11 @@ func (s *Service) runScalingHandle(w http.ResponseWriter, r *http.Request) {
 	if reqInput.StartTime != "" {
 		algTimestamp, err = metapipe.ParseMetapipeTimestamp(reqInput.StartTime)
 	} else {
+		s.Log.Println("No algorithm time provided in request, setting time to now")
 		algTimestamp = time.Now()
 	}
+
+	algInput.Clouds = s.Clouds
 
 	//Run the algorithm
 	out, err := s.Algorithm.Run(algInput, algTimestamp)
@@ -87,12 +115,51 @@ func (s *Service) runScalingHandle(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	b, err := json.Marshal(out)
-	w.Write(b)
+
+	w.WriteHeader(http.StatusCreated)
+	enc := json.NewEncoder(w)
+	err = enc.Encode(&out.JobQueue)
 }
 
 func (s *Service) getPreviousScalingHandle(w http.ResponseWriter, r *http.Request) {
 
+	raw, err := url.Parse(r.RequestURI)
+	if err != nil {
+		s.Log.Print(err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	var out prevRun
+
+	q := raw.Query()
+	if val, ok := q["id"]; ok {
+
+		run, err := models.GetAutoscalingRun(s.DB, val[0])
+		if err != nil && err != sql.ErrNoRows {
+			s.Log.Print(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		events, err := models.GetAutoscalingRunEvents(s.DB, val[0])
+		if err != nil && err != sql.ErrNoRows {
+			s.Log.Print(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		jobs, err := models.GetAllAlgorithmJobs(s.DB, val[0])
+		if err != nil && err != sql.ErrNoRows {
+			s.Log.Print(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		out.CloudEvents = events
+		out.Queue = jobs
+		out.Start = run.Started
+		out.Finish = run.Finished.Time
+	}
+	enc := json.NewEncoder(w)
+	err = enc.Encode(&out)
 }
 
 func (s *Service) Run() error {
@@ -105,7 +172,7 @@ func (s *Service) serve() {
 	r := mux.NewRouter()
 	r.HandleFunc("/", s.indexHandle).Methods("GET")
 	r.HandleFunc("/metapipe/autoscale/", s.runScalingHandle).Methods("POST")
-	r.HandleFunc("/metapipe/autoscale/{id}/", s.getPreviousScalingHandle).Methods("GET")
+	r.HandleFunc("/metapipe/autoscale/", s.getPreviousScalingHandle).Methods("GET")
 
 	http.ListenAndServe(s.Hostname, r)
 }
