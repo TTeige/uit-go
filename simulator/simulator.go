@@ -59,14 +59,14 @@ func (sim *Simulator) serveSim() {
 
 func (sim *Simulator) getAllSimulations(w http.ResponseWriter, r *http.Request) {
 	sim.Log.Print("GetAllSimulationsRequest: /simulation/all")
-	sims, err := models.GetAllAutoscalingRunStats(sim.DB)
+	runs, err := models.GetAllAutoscalingRunStats(sim.DB)
 	if err != nil {
 		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	b, err := json.Marshal(sims)
+	b, err := json.Marshal(runs)
 	w.Write(b)
 }
 
