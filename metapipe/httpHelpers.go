@@ -16,10 +16,10 @@ type Oath2 struct {
 }
 
 type ScalingRequestInput struct {
-	Name      string            `json:"name"`
+	Name      string                      `json:"name"`
 	Clusters  autoscale.ClusterCollection `json:"clusters"`
-	Jobs      []Job    `json:"jobs"`
-	StartTime string            `json:"start_time"`
+	Jobs      []Job                       `json:"jobs"`
+	StartTime string                      `json:"start_time"`
 }
 
 func (o *Oath2) GetSetAccessToken() (string, error) {
