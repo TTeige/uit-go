@@ -117,6 +117,9 @@ func InitDatabase(db *sql.DB, auth metapipe.Oath2, fetchNewJobs bool) error {
 			}
 
 			s, err := client.GetMetapipeJobSize(job.Id)
+			if !(s > 0) {
+				continue
+			}
 			dbJob.InputDataSize = s
 			if err != nil {
 				return err
