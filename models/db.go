@@ -60,10 +60,6 @@ func InitDatabase(db *sql.DB, auth metapipe.Oath2, fetchNewJobs bool) error {
 		return nil
 	}
 
-	jobs, err := GetAllJobs(db)
-	if err != nil && err != sql.ErrNoRows {
-		return err
-	}
 	client := metapipe.RetryClient{
 		Auth:        auth,
 		MaxAttempts: 3,
@@ -71,21 +67,26 @@ func InitDatabase(db *sql.DB, auth metapipe.Oath2, fetchNewJobs bool) error {
 			Timeout: time.Second * 10,
 		},
 	}
-	for _, j := range jobs {
-		if j.InputDataSize == 0 {
 
-			size, err := client.GetMetapipeJobSize(j.JobId)
-			if err != nil {
-				return err
-			}
-			if size > 0 {
-				err = UpdateJob(db, *j)
-				if err != nil {
-					return err
-				}
-			}
-		}
-	}
+	//jobs, err := GetAllJobs(db)
+	//if err != nil && err != sql.ErrNoRows {
+	//	return err
+	//}
+	//for _, j := range jobs {
+	//	if j.InputDataSize == 0 {
+	//
+	//		size, err := client.GetMetapipeJobSize(j.JobId)
+	//		if err != nil {
+	//			return err
+	//		}
+	//		if size > 0 {
+	//			err = UpdateJob(db, *j)
+	//			if err != nil {
+	//				return err
+	//			}
+	//		}
+	//	}
+	//}
 
 	all, err := client.GetAllMetapipeJobs()
 	if err != nil {
