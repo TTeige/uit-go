@@ -60,7 +60,7 @@ type AlgorithmJob struct {
 	Deadline        time.Time
 	Created         time.Time
 	Started         time.Time
-	InstanceFlavour InstanceType
+	InstanceFlavour string
 }
 
 type Algorithm interface {
