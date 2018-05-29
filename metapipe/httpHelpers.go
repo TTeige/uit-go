@@ -16,10 +16,12 @@ type Oath2 struct {
 }
 
 type ScalingRequestInput struct {
-	Name      string                      `json:"name"`
-	Clusters  autoscale.ClusterCollection `json:"clusters"`
-	Jobs      []Job                       `json:"jobs"`
-	StartTime string                      `json:"start_time"`
+	Name       string                      `json:"name"`
+	Clusters   autoscale.ClusterCollection `json:"clusters"`
+	Jobs       []Job                       `json:"jobs"`
+	StartTime  string                      `json:"start_time"`
+	Iterations int                         `json:"iterations"`
+	Timestep   int                         `json:"timestep"`
 }
 
 func (o *Oath2) GetSetAccessToken() (string, error) {
@@ -116,7 +118,6 @@ func (rc *RetryClient) fetchSize(datasetUrl string, authToken string) (int64, er
 func (rc *RetryClient) GetAllMetapipeJobs() ([]Job, error) {
 	log.Printf("Downloading metapipe dataset")
 	resp, err := rc.retryGet("https://jobs.metapipe.uit.no/jobs")
-	defer resp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
