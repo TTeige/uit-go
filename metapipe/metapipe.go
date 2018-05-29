@@ -6,6 +6,7 @@ import (
 	"time"
 	"strings"
 	"math"
+	"log"
 )
 
 const (
@@ -75,33 +76,45 @@ func ConvertFromMetapipeParameters(parameter Parameters) (autoscale.JobParameter
 }
 
 func ConvertToMetapipeParamaters(parameters autoscale.JobParameters) Parameters {
-
-	cutoff, err := strconv.ParseInt(parameters["InputContigsCutoff"], 10, 64)
-	if err != nil {
-		return Parameters{}
+	var cutoff int64
+	if parameters["InputContigsCutoff"] == "" {
+		cutoff = 0
+	} else {
+		cutoff, err := strconv.ParseInt(parameters["InputContigsCutoff"], 10, 64)
+		if err != nil {
+			log.Print(err)
+			return Parameters{}
+		}
+		cutoff = cutoff
 	}
 	ubu50, err := strconv.ParseBool(parameters["UseBlastUniref50"])
 	if err != nil {
+		log.Print(err)
 		return Parameters{}
 	}
 	uis5, err := strconv.ParseBool(parameters["UseBlastUniref50"])
 	if err != nil {
+		log.Print(err)
 		return Parameters{}
 	}
 	up, err := strconv.ParseBool(parameters["UsePriam"])
 	if err != nil {
+		log.Print(err)
 		return Parameters{}
 	}
 	rncg, err := strconv.ParseBool(parameters["RemoveNonCompleteGenes"])
 	if err != nil {
+		log.Print(err)
 		return Parameters{}
 	}
 	emg, err := strconv.ParseBool(parameters["ExportMergedGenbank"])
 	if err != nil {
+		log.Print(err)
 		return Parameters{}
 	}
 	ubmr, err := strconv.ParseBool(parameters["UseBlastMarRef"])
 	if err != nil {
+		log.Print(err)
 		return Parameters{}
 	}
 
@@ -127,7 +140,7 @@ func ParseMetapipeTimestamp(stamp string) (time.Time, error) {
 	if len(stamp) > 10 {
 		n = t % 1000
 	}
-	t = t / 1 * int64(math.Pow10(10))
+	t = t / (1 * int64(math.Pow10(3)))
 
 	return time.Unix(t, n), nil
 }
@@ -135,13 +148,21 @@ func ParseMetapipeTimestamp(stamp string) (time.Time, error) {
 func ConvertMetapipeQueueToAlgInputJobs(jobs []Job) ([]autoscale.AlgorithmJob, error) {
 	var out []autoscale.AlgorithmJob
 	for _, j := range jobs {
+		if j.TimeSubmitted == "" {
+			continue
+		}
 		t, err := ParseMetapipeTimestamp(j.TimeSubmitted)
 		if err != nil {
+			log.Print(err)
 			return out, err
 		}
-		start, err := ParseMetapipeTimestamp(j.Attempts[0].TimeStarted)
-		if err != nil {
-			return out, err
+		var start time.Time
+		if j.Attempts[0].TimeStarted != "" {
+			start, err = ParseMetapipeTimestamp(j.Attempts[0].TimeStarted)
+			if err != nil {
+				log.Print(err)
+				return out, err
+			}
 		}
 		algJob := autoscale.AlgorithmJob{
 			Id:            j.Id,
@@ -154,6 +175,13 @@ func ConvertMetapipeQueueToAlgInputJobs(jobs []Job) ([]autoscale.AlgorithmJob, e
 			Created:       t,
 			Started:       start,
 		}
+		for _, a := range j.Attempts {
+			if a.State == autoscale.RUNNING {
+				algJob.State = a.State
+				break
+			}
+		}
+
 		out = append(out, algJob)
 	}
 	return out, nil
