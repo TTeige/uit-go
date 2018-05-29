@@ -47,8 +47,8 @@ func (BadAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time) (au
 				var duration int64
 				duration = 0
 				flav := "default"
-				if job.InstanceFlavour.Name != "" {
-					flav = job.InstanceFlavour.Name
+				if job.InstanceFlavour != "" {
+					flav = job.InstanceFlavour
 				}
 				cost := cloud.GetExpectedJobCost(job, flav, startTime)
 				if cost < lowestCost {
