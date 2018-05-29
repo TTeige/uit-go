@@ -53,14 +53,13 @@ func (c *SimCloud) AddInstance(instance *autoscale.Instance, currentTime time.Ti
 	eventType := "CREATED"
 	index := 0
 	for _, inst := range c.Cluster.ActiveInstances {
-		if inst.State == "INACTIVE" && inst.Type == instance.Type {
-			instance.Id = inst.Id
+		if instance.Id == inst.Id {
 			eventType = "REUSED"
 			break
 		}
 		index++
 	}
-	instance.State = "ACTIVE"
+	instance.State = "INACTIVE"
 
 	if instance.Id == "" {
 		instance.Id = c.Cluster.Name + "_" + ksuid.New().String()
@@ -87,6 +86,7 @@ func (c *SimCloud) AddInstance(instance *autoscale.Instance, currentTime time.Ti
 }
 
 func (c *SimCloud) DeleteInstance(id string, currentTime time.Time) error {
+
 	instances, err := c.GetInstances()
 	if err != nil {
 		return nil
@@ -117,6 +117,7 @@ func (c *SimCloud) GetInstanceTypes() (map[string]autoscale.InstanceType, error)
 }
 
 func (c *SimCloud) GetTotalDuration(queue []autoscale.AlgorithmJob, currentTime time.Time) (int64, error) {
+
 	activeInstances := 0
 	instances, err := c.GetInstances()
 	if err != nil {
@@ -159,7 +160,7 @@ func (c *SimCloud) GetTotalDuration(queue []autoscale.AlgorithmJob, currentTime 
 func (c *SimCloud) GetTotalCost(queue []autoscale.AlgorithmJob, currentTime time.Time) float64 {
 	totalCost := 0.0
 	for _, job := range queue {
-		flavour := job.InstanceFlavour.Name
+		flavour := job.InstanceFlavour
 		if flavour == "" {
 			flavour = "default"
 		}
