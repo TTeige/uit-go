@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"io"
 	"github.com/tteige/uit-go/metapipe"
+	"sort"
 )
 
 type simulationOutput map[int]map[string][]autoscale.AlgorithmJob
@@ -33,6 +34,16 @@ type Simulator struct {
 	templates   *template.Template
 	tmplLoc     string
 	Estimator   autoscale.Estimator
+}
+
+type metapipeReturn struct {
+	id         string
+	input      autoscale.AlgorithmInput
+	jobs       []autoscale.AlgorithmJob
+	timestamp  time.Time
+	err        error
+	iterations int
+	timestep   int
 }
 
 func (sim *Simulator) Run() {
@@ -112,14 +123,14 @@ func (sim *Simulator) getPreviousScalingHandle(w http.ResponseWriter, r *http.Re
 	w.Write(b)
 }
 
-func (sim *Simulator) simulate(simId string, completeQueue []autoscale.AlgorithmJob, algInput autoscale.AlgorithmInput, algTimestamp time.Time) (simulationOutput, error) {
+func (sim *Simulator) simulate(simId string, completeQueue []autoscale.AlgorithmJob, algInput autoscale.AlgorithmInput, algTimestamp time.Time, timestep int, iterations int) (simulationOutput, error) {
 	jsonSimQueue := make(simulationOutput)
 	sim.Log.Printf("Starting simulation: %s", simId)
 
-	for i := 0; i < 96; i++ {
+	for i := 0; i < iterations; i++ {
 		if i > 0 {
 			//Simulates a 30 minute interval between each scaling attempt
-			algTimestamp = algTimestamp.Add(time.Minute * time.Duration(30))
+			algTimestamp = algTimestamp.Add(time.Minute * time.Duration(timestep))
 		}
 
 		//Selects jobs that are created before the timestamp
@@ -170,18 +181,31 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 				return nil, err
 			}
 
+			instancesInactive := 0
 			instancesActive := 0
 			for _, i := range instances {
 				if i.State == autoscale.ACTIVE {
 					instancesActive++
+				} else {
+					instancesInactive++
 				}
 			}
 			runningJobs := 0
+			notRunningJobs := 0
 			for _, i := range queue {
 				if i.State == autoscale.RUNNING {
 					runningJobs++
+				} else {
+					notRunningJobs++
 				}
 			}
+
+			sort.Slice(queue, func(i, j int) bool {
+				if queue[i].State == autoscale.RUNNING {
+					return true
+				}
+				return queue[i].Priority > queue[j].Priority
+			})
 
 			//Iterate the queue
 			deleted := 0
@@ -192,7 +216,23 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 					if queue[j].State != autoscale.RUNNING {
 						queue[j].State = autoscale.RUNNING
 						runningJobs++
+						notRunningJobs--
 						queue[j].Started = algTimestamp
+					}
+				} else if instancesInactive != 0 {
+					if queue[j].State != autoscale.RUNNING {
+						queue[j].State = autoscale.RUNNING
+						queue[j].Started = algTimestamp
+						runningJobs++
+						notRunningJobs--
+						for index := range instances {
+							if instances[index].State == autoscale.INACTIVE {
+								instances[index].State = autoscale.ACTIVE
+								instancesInactive--
+								instancesActive++
+								break
+							}
+						}
 					}
 				}
 				//Simulates a job finishing
@@ -202,8 +242,8 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 					instanceIndex := 0
 					for _, instance := range instances {
 						if instance.State == autoscale.ACTIVE {
-							if queue[j].InstanceFlavour != (autoscale.InstanceType{}) {
-								if queue[j].InstanceFlavour.Name == instances[instanceIndex].Type {
+							if queue[j].InstanceFlavour != "" {
+								if queue[j].InstanceFlavour == instances[instanceIndex].Type {
 									break
 								}
 							} else {
@@ -241,7 +281,7 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 
 			for _, jobAfterDelete := range queue {
 				newInputQueue = append(newInputQueue, jobAfterDelete)
-				err = models.InsertAlgorithmJob(sim.DB, jobAfterDelete, simId)
+				//err = models.InsertAlgorithmJob(sim.DB, jobAfterDelete, simId)
 				if err != nil {
 					return nil, err
 				}
@@ -262,15 +302,19 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 func (sim *Simulator) metapipeSimulationHandle(w http.ResponseWriter, r *http.Request) {
 	sim.Log.Print("SimulationRequest: /metapipe/simulate/")
 
-	simId, algInput, completeQueue, algTimestamp, err := sim.handleMetapipe(r)
-	jsonSimQueue, err := sim.simulate(simId, completeQueue, algInput, algTimestamp)
-
-	sim.Log.Println("FINISHED SIMULATION")
+	metaOutput := sim.handleMetapipe(r)
+	if metaOutput.err != nil {
+		sim.Log.Print(metaOutput.err)
+		http.Error(w, metaOutput.err.Error(), http.StatusInternalServerError)
+		return
+	}
+	jsonSimQueue, err := sim.simulate(metaOutput.id, metaOutput.jobs, metaOutput.input, metaOutput.timestamp, metaOutput.timestep, metaOutput.iterations)
 	if err != nil {
 		sim.Log.Print(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	sim.Log.Println("FINISHED SIMULATION")
 
 	w.WriteHeader(http.StatusCreated)
 	enc := json.NewEncoder(w)
@@ -325,7 +369,7 @@ func (sim *Simulator) createMetapipeClouds(inClusterStates autoscale.ClusterColl
 	return simCloudMap, nil
 }
 
-func (sim *Simulator) handleMetapipe(r *http.Request) (string, autoscale.AlgorithmInput, []autoscale.AlgorithmJob, time.Time, error) {
+func (sim *Simulator) handleMetapipe(r *http.Request) (metapipeReturn) {
 	utcNorway := int((time.Hour).Seconds())
 	nor := time.FixedZone("Norway", utcNorway)
 	defaultTime := time.Date(2018, 5, 23, 20, 40, 23, 0, nor)
@@ -333,25 +377,23 @@ func (sim *Simulator) handleMetapipe(r *http.Request) (string, autoscale.Algorit
 	var algInput autoscale.AlgorithmInput
 	var simC autoscale.CloudCollection
 	var reqInput metapipe.ScalingRequestInput
-	var algTimestamp time.Time
-	var simId string
-	var completeQueue []autoscale.AlgorithmJob
+	var retVal metapipeReturn
 
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(&reqInput)
 	if err != nil && err != io.EOF {
-		return simId, algInput, completeQueue, algTimestamp, err
+		return retVal
 	}
 
 	if reqInput.Clusters != nil {
 		simC, err = sim.createMetapipeClouds(reqInput.Clusters)
 		if err != nil {
-			return simId, algInput, completeQueue, algTimestamp, err
+			return retVal
 		}
 	} else {
 		simC, err = sim.createMetapipeClouds(sim.SimClusters)
 		if err != nil {
-			return simId, algInput, completeQueue, algTimestamp, err
+			return retVal
 		}
 	}
 
@@ -360,26 +402,41 @@ func (sim *Simulator) handleMetapipe(r *http.Request) (string, autoscale.Algorit
 	friendlyName := reqInput.Name
 	if reqInput.Jobs != nil {
 		algjobs, err := metapipe.ConvertMetapipeQueueToAlgInputJobs(reqInput.Jobs)
-		completeQueue, err = sim.Estimator.ProcessQueue(algjobs)
+		retVal.err = err
 		if err != nil {
-			return simId, algInput, completeQueue, algTimestamp, err
+			return retVal
+		}
+		retVal.jobs, retVal.err = sim.Estimator.ProcessQueue(algjobs)
+		if retVal.err != nil {
+			return retVal
 		}
 	} else {
-		completeQueue = jobs[:]
+		retVal.jobs = jobs[:]
 	}
 
 	if friendlyName == "" {
 		friendlyName = ksuid.New().String()
 	}
-	simId, err = models.CreateAutoscalingRun(sim.DB, friendlyName, time.Now())
-	if err != nil {
-		return simId, algInput, completeQueue, algTimestamp, err
+	retVal.id, err = models.CreateAutoscalingRun(sim.DB, friendlyName, time.Now())
+	if retVal.err != nil {
+		return retVal
 	}
-	setScalingIds(simC, simId)
+	setScalingIds(simC, retVal.id)
 	if reqInput.StartTime != "" {
-		algTimestamp, err = metapipe.ParseMetapipeTimestamp(reqInput.StartTime)
+		retVal.timestamp, retVal.err = metapipe.ParseMetapipeTimestamp(reqInput.StartTime)
 	} else {
-		algTimestamp = defaultTime
+		retVal.timestamp = defaultTime
 	}
-	return simId, algInput, completeQueue, algTimestamp, nil
+
+	retVal.input = algInput
+	retVal.err = nil
+	retVal.timestep = reqInput.Timestep
+	retVal.iterations = reqInput.Iterations
+	if retVal.timestep == 0 {
+		retVal.timestep = 30
+	}
+	if retVal.iterations == 0 {
+		retVal.iterations = 96
+	}
+	return retVal
 }
