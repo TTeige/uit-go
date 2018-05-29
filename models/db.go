@@ -9,6 +9,7 @@ import (
 	"time"
 	"log"
 	"github.com/tteige/uit-go/metapipe"
+	"github.com/tteige/uit-go/autoscale"
 )
 
 func getTotalDuration(job metapipe.Job) (int64, error) {
@@ -17,16 +18,17 @@ func getTotalDuration(job metapipe.Job) (int64, error) {
 	if job.TotalRuntimeMillis == 0 {
 		var lastHeartbeat string
 		for _, attempt := range job.Attempts {
-			if attempt.State == "FINISHED" {
+			if attempt.State == autoscale.FINISHED {
 				lastHeartbeat = attempt.LastHeartbeat
 			}
 		}
-		if lastHeartbeat != "" && job.TimeSubmitted != "" {
+
+		if lastHeartbeat != "" && job.Attempts[0].TimeStarted != "" {
 			lhb, err := strconv.ParseInt(lastHeartbeat, 10, 64)
 			if err != nil {
 				return 0, err
 			}
-			timeStart, err := strconv.ParseInt(job.TimeSubmitted, 10, 64)
+			timeStart, err := strconv.ParseInt(job.Attempts[0].TimeStarted, 10, 64)
 			if err != nil {
 				return 0, err
 			}
@@ -64,7 +66,7 @@ func InitDatabase(db *sql.DB, auth metapipe.Oath2, fetchNewJobs bool) error {
 		Auth:        auth,
 		MaxAttempts: 3,
 		Client: http.Client{
-			Timeout: time.Second * 10,
+			Timeout: time.Second * 20,
 		},
 	}
 
@@ -98,6 +100,13 @@ func InitDatabase(db *sql.DB, auth metapipe.Oath2, fetchNewJobs bool) error {
 	log.Printf("Begin insertions")
 	for _, job := range all {
 		if job.State == "FINISHED" {
+			exists, err := CheckExists(db, job.Id)
+			if err != nil {
+				return err
+			}
+			if exists {
+				continue
+			}
 			totalDuration, err := getTotalDuration(job)
 
 			if err != nil {
