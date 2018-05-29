@@ -41,7 +41,10 @@ func (lr *LinearRegression) Init() error {
 		regJ.Params = param
 		regJ.ExecTime = float64(j.Runtime)
 		regJ.DataSize = float64(j.InputDataSize)
-		regJ.Tag = j.Tag
+		regJ.Tag = metapipe.GetTag(j.Tag)
+		if j.Tag == "undefined" {
+			continue
+		}
 		dataPoints = append(dataPoints, regJ)
 	}
 	lr.InitModel(dataPoints)
@@ -80,18 +83,17 @@ func (lr *LinearRegression) InitModel(dataPoints []RegressionJob) error {
 			continue
 		}
 
-		tag := metapipe.GetTag(j.Tag)
 		parVal := generateParamBin(j.Params.MP)
 		dataPoint := regression.DataPoint(j.ExecTime, []float64{j.DataSize, parVal, float64(j.Params.MP.InputContigsCutoff)})
-		dataPointMap[tag] = append(dataPointMap[tag], dataPoint)
+		dataPointMap[j.Tag] = append(dataPointMap[j.Tag], dataPoint)
 	}
 
 	for key, val := range dataPointMap {
 		r := new(regression.Regression)
-		r.SetVar(0, "executionTime")
-		r.SetVar(1, "datasize")
-		r.SetVar(2, "parameters")
-		r.SetVar(3, "contigs")
+		r.SetObserved("executionTime")
+		r.SetVar(0, "datasize")
+		r.SetVar(1, "parameters")
+		r.SetVar(2, "contigs")
 		for _, p := range val {
 			r.Train(p)
 		}
@@ -133,7 +135,6 @@ func (lr *LinearRegression) ProcessQueue(jobs []autoscale.AlgorithmJob) ([]autos
 		if newTag == "undefined" {
 			continue
 		}
-
 
 		dataSize, err := client.GetMetapipeJobSize(j.Id)
 		if err != nil {
