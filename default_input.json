@@ -1,5 +1,93 @@
 {
   "start_time": "1511539088734",
+  "iterations": 120,
+  "timestep": 1440,
+  "clusters": {
+    "aws": {
+      "name": "aws",
+      "limit": 2,
+      "tag": "aws",
+      "types": {
+        "default": {
+          "name": "default",
+          "price": 0.68
+        }
+      },
+      "instances": [
+        {
+          "id": "test_aws_1",
+          "type": "default",
+          "state": "INACTIVE"
+        },
+        {
+          "id": "test_aws_2",
+          "type": "default",
+          "state": "INACTIVE"
+        },
+        {
+          "id": "test_aws_3",
+          "type": "default",
+          "state": "INACTIVE"
+        }
+      ]
+    },
+    "csc": {
+      "name": "csc",
+      "limit": 4,
+      "tag": "csc",
+      "types": {
+        "default": {
+          "name": "default",
+          "price": 0.78
+        }
+      },
+      "instances": [
+        {
+          "id": "test_csc_1",
+          "type": "default",
+          "state": "INACTIVE"
+        },
+        {
+          "id": "test_csc_2",
+          "type": "default",
+          "state": "INACTIVE"
+        }
+      ]
+    },
+    "metapipe": {
+      "name": "metapipe",
+      "limit": 7,
+      "tag": "metapipe",
+      "types": {
+        "default": {
+          "name": "default",
+          "price": 0.48
+        }
+      },
+      "instances": [
+        {
+          "id": "metapipe_test_1",
+          "type": "default",
+          "state": "RUNNING"
+        },
+        {
+          "id": "metapipe_test_1",
+          "type": "default",
+          "state": "RUNNING"
+        },
+        {
+          "id": "metapipe_test_1",
+          "type": "default",
+          "state": "RUNNING"
+        },
+        {
+          "id": "metapipe_test_1",
+          "type": "default",
+          "state": "RUNNING"
+        }
+      ]
+    }
+  },
   "jobs": [
     {
       "jobId": "metapipectl_5NECDY1CKI",
@@ -28511,7 +28599,7 @@
     {
       "jobId": "jcu8jrnb-4266io",
       "timeSubmitted": "1516868971958",
-      "state": "DELAYED",
+      "state": "SUBMITTED",
       "userId": "f307a40f9b",
       "tag": "csc-metapipe",
       "priority": 1000,
@@ -28542,12 +28630,12 @@
       "attempts": [
         {
           "executorId": "test-executor",
-          "state": "WORKFLOW_FAILED",
+          "state": "QUEUED_LOCALLY",
           "attemptId": "so_GSGE5SC4QM",
           "tag": "csc-metapipe",
           "timeCreated": "1516868975310",
-          "timeStarted": "1516868976867",
-          "timeEnded": "1516868977231",
+          "timeStarted": "",
+          "timeEnded": "",
           "lastHeartbeat": "1516868976987",
           "runtimeMillis": 364,
           "queueDurationMillis": 1557,
@@ -29362,7 +29450,7 @@
     {
       "jobId": "ja11ppf3-hcgklc",
       "timeSubmitted": "1510750314576",
-      "state": "DELAYED",
+      "state": "SUBMITTED",
       "userId": "f307a40f9b",
       "tag": "csc-metapipe",
       "priority": 1000,
@@ -29392,7 +29480,7 @@
       "attempts": [
         {
           "executorId": "test-executor",
-          "state": "WORKFLOW_FAILED",
+          "state": "QUEUED_LOCALLY",
           "attemptId": "so_OTGZ2WOZS3",
           "tag": "csc-metapipe",
           "timeCreated": "1510750316828",
@@ -29576,7 +29664,7 @@
     {
       "jobId": "ja0wuew7-a9ivt",
       "timeSubmitted": "1510742132523",
-      "state": "DELAYED",
+      "state": "SUBMITTED",
       "userId": "f307a40f9b",
       "tag": "csc-metapipe",
       "priority": 1000,
@@ -29602,7 +29690,7 @@
       "attempts": [
         {
           "executorId": "test-executor",
-          "state": "WORKFLOW_FAILED",
+          "state": "QUEUED_LOCALLY",
           "attemptId": "so_C8LGYHZFWC",
           "tag": "csc-metapipe",
           "timeCreated": "1510742135238",
@@ -29623,7 +29711,7 @@
     {
       "jobId": "ja120c1z-k1yww9",
       "timeSubmitted": "1510750813993",
-      "state": "DELAYED",
+      "state": "SUBMITTED",
       "userId": "f307a40f9b",
       "tag": "csc-metapipe",
       "priority": 1000,
@@ -29653,7 +29741,7 @@
       "attempts": [
         {
           "executorId": "test-executor",
-          "state": "WORKFLOW_FAILED",
+          "state": "QUEUED_LOCALLY",
           "attemptId": "so_VCA613PVOC",
           "tag": "csc-metapipe",
           "timeCreated": "1510750819368",
@@ -29825,7 +29913,7 @@
     {
       "jobId": "ja24rqed-y4ed6j",
       "timeSubmitted": "1510815939135",
-      "state": "DELAYED",
+      "state": "SUBMITTED",
       "userId": "f307a40f9b",
       "tag": "csc-metapipe",
       "priority": 1000,
@@ -29851,7 +29939,7 @@
       "attempts": [
         {
           "executorId": "test-executor",
-          "state": "WORKFLOW_FAILED",
+          "state": "QUEUED_LOCALLY",
           "attemptId": "so_LZFD60Q1KX",
           "tag": "csc-metapipe",
           "timeCreated": "1510815940511",
@@ -29921,7 +30009,7 @@
     {
       "jobId": "ja13j25z-9e6wns",
       "timeSubmitted": "1510816859842",
-      "state": "DELAYED",
+      "state": "SUBMITTED",
       "userId": "f307a40f9b",
       "tag": "csc-metapipe",
       "priority": 1000,
@@ -29947,7 +30035,7 @@
       "attempts": [
         {
           "executorId": "test-executor",
-          "state": "WORKFLOW_FAILED",
+          "state": "QUEUED_LOCALLY",
           "attemptId": "so_HM8CP7UW5K",
           "tag": "csc-metapipe",
           "timeCreated": "1510816860528",
@@ -29968,7 +30056,7 @@
     {
       "jobId": "ja25lmxj-rwa0k",
       "timeSubmitted": "1510817318613",
-      "state": "DELAYED",
+      "state": "SUBMITTED",
       "userId": "f307a40f9b",
       "tag": "csc-metapipe",
       "priority": 1000,
@@ -29994,7 +30082,7 @@
       "attempts": [
         {
           "executorId": "test-executor",
-          "state": "WORKFLOW_FAILED",
+          "state": "QUEUED_LOCALLY",
           "attemptId": "so_QEMQFODDBC",
           "tag": "csc-metapipe",
           "timeCreated": "1510817320513",
@@ -30015,7 +30103,7 @@
     {
       "jobId": "ja25pxav-edymvd",
       "timeSubmitted": "1510817952505",
-      "state": "DELAYED",
+      "state": "SUBMITTED",
       "userId": "f307a40f9b",
       "tag": "csc-metapipe",
       "priority": 1000,
@@ -30041,7 +30129,7 @@
       "attempts": [
         {
           "executorId": "test-executor",
-          "state": "WORKFLOW_FAILED",
+          "state": "QUEUED_LOCALLY",
           "attemptId": "so_V3W0FCC3VX",
           "tag": "csc-metapipe",
           "timeCreated": "1510817960512",
@@ -30557,7 +30645,7 @@
     {
       "jobId": "ja25nfnw-mr0ima",
       "timeSubmitted": "1510817398156",
-      "state": "DELAYED",
+      "state": "SUBMITTED",
       "userId": "f307a40f9b",
       "tag": "csc-metapipe",
       "priority": 1000,
@@ -30583,7 +30671,7 @@
       "attempts": [
         {
           "executorId": "test-executor",
-          "state": "WORKFLOW_FAILED",
+          "state": "QUEUED_LOCALLY",
           "attemptId": "so_J3A6QZRS6C",
           "tag": "csc-metapipe",
           "timeCreated": "1510817400530",

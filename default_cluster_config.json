@@ -1,7 +1,7 @@
 {
   "aws": {
     "name": "aws",
-    "limit": 2,
+    "limit": 8,
     "tag": "aws",
     "types": {
       "default": {
@@ -29,7 +29,7 @@
   },
   "csc": {
     "name": "csc",
-    "limit": 4,
+    "limit": 5,
     "tag": "csc",
     "types": {
       "default": {
@@ -52,7 +52,7 @@
   },
   "metapipe": {
     "name": "metapipe",
-    "limit": 4,
+    "limit": 7,
     "tag": "metapipe",
     "types": {
       "default": {
