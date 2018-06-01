@@ -204,7 +204,7 @@ func (sim *Simulator) simulate(simId string, completeQueue []autoscale.Algorithm
 				if queue[i].State == autoscale.RUNNING {
 					return true
 				}
-				return queue[i].Priority > queue[j].Priority
+				return queue[i].Priority < queue[j].Priority
 			})
 
 			//Iterate the queue

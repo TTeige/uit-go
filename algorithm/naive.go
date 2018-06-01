@@ -46,8 +46,6 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 				}
 			} else {
 				shortestCloud = key
-				var duration int64
-				duration = 0
 				flav := "default"
 				if job.InstanceFlavour != "" {
 					flav = job.InstanceFlavour
@@ -57,9 +55,12 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 					lowestCost = cost
 					lowestCostcloud = key
 				}
-				if duration < shortest {
-					shortest = duration
-					shortestCloud = key
+				if dur, ok := job.ExecutionTime[key]; ok {
+					duration := dur
+					if duration < shortest {
+						shortest = duration
+						shortestCloud = key
+					}
 				}
 			}
 		}
@@ -87,12 +88,12 @@ func (n NaiveAlgorithm) Run(input autoscale.AlgorithmInput, startTime time.Time)
 			if queue[i].State == autoscale.RUNNING {
 				return true
 			}
-			if queue[i].Priority > queue[j].Priority {
+			if queue[i].Priority < queue[j].Priority {
 				return true
 			} else if queue[i].Priority == queue[j].Priority {
 				if queue[i].Deadline.Before(queue[j].Deadline) {
-					//If the job has a closer deadline, increase its priority
-					queue[i].Priority++
+					//If the job has a closer deadline, deacrease the priority value (increase priority)
+					queue[i].Priority--
 					return true
 				} else {
 					return false

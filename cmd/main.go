@@ -27,6 +27,9 @@ func main() {
 		log.Fatal(err)
 		return
 	}
+
+	log.Printf("Run service %+v\nUpdateDB %+v", *service, *updateDb)
+
 	serviceHostname := conf.ServiceConfig.Hostname + ":" + conf.ServiceConfig.Port
 
 	db, err := models.OpenDatabase(conf.DBConfig.User, conf.DBConfig.Host, conf.DBConfig.Password)
@@ -58,8 +61,9 @@ func main() {
 		DB:   db,
 	}
 
-	//alg := algorithm.NaiveAlgorithm{}
-	alg := algorithm.BadAlgorithm{}
+	alg := algorithm.NaiveAlgorithm{}
+	//alg := algorithm.BadAlgorithm{}
+	//alg := algorithm.NilAlg{}
 
 	if *service {
 		clusters, err := loadClusters("CLUSTER_CONFIG")
